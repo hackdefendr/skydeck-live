@@ -154,6 +154,7 @@ skydeck/
 | `JWT_SECRET` | JWT signing secret | - |
 | `SESSION_SECRET` | Session secret | - |
 | `BLUESKY_SERVICE` | Bluesky API service URL | https://bsky.social |
+| `BLUESKY_CHAT_SERVICE` | Bluesky Chat API URL | https://api.bsky.chat |
 | `FRONTEND_URL` | Frontend URL for CORS | http://localhost:5173 |
 
 ## Contributing
