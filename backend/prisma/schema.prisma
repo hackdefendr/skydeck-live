@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(uuid())
+  did             String    @unique // Bluesky DID
+  handle          String    @unique // Bluesky handle
+  displayName     String?
+  avatar          String?
+  description     String?
+
+  // Session management
+  accessJwt       String?
+  refreshJwt      String?
+
+  // App-specific settings
+  columns         Column[]
+  theme           Theme?
+  sessions        Session[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([did])
+  @@index([handle])
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token       String   @unique
+  userAgent   String?
+  ipAddress   String?
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
+model Column {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        ColumnType
+  title       String
+  position    Int
+  width       Int         @default(350)
+
+  // Column-specific config (JSON)
+  config      Json        @default("{}")
+
+  // For feed columns
+  feedUri     String?
+
+  // For list columns
+  listUri     String?
+
+  // For search columns
+  searchQuery String?
+
+  // For profile columns
+  profileDid  String?
+
+  isVisible   Boolean     @default(true)
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([position])
+}
+
+enum ColumnType {
+  HOME
+  NOTIFICATIONS
+  MENTIONS
+  MESSAGES
+  SEARCH
+  LIST
+  FEED
+  PROFILE
+  LIKES
+  BOOKMARKS
+}
+
+model Theme {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name            String   @default("Custom")
+
+  // Color scheme
+  mode            String   @default("dark") // 'light' | 'dark' | 'system'
+
+  // Primary colors
+  primaryColor    String   @default("#0085ff")
+  secondaryColor  String   @default("#6366f1")
+  accentColor     String   @default("#22c55e")
+
+  // Background colors
+  bgPrimary       String   @default("#000000")
+  bgSecondary     String   @default("#16181c")
+  bgTertiary      String   @default("#1d1f23")
+
+  // Text colors
+  textPrimary     String   @default("#e7e9ea")
+  textSecondary   String   @default("#71767b")
+  textMuted       String   @default("#536471")
+
+  // Border colors
+  borderColor     String   @default("#2f3336")
+
+  // Typography
+  fontFamily      String   @default("system-ui")
+  fontSize        String   @default("medium") // 'small' | 'medium' | 'large'
+
+  // Layout
+  columnWidth     Int      @default(350)
+  columnGap       Int      @default(8)
+  compactMode     Boolean  @default(false)
+
+  // Custom CSS
+  customCss       String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model BlockedUser {
+  id          String   @id @default(uuid())
+  userId      String
+  blockedDid  String
+  blockedAt   DateTime @default(now())
+
+  @@unique([userId, blockedDid])
+  @@index([userId])
+}
+
+model MutedUser {
+  id        String   @id @default(uuid())
+  userId    String
+  mutedDid  String
+  mutedAt   DateTime @default(now())
+  expiresAt DateTime?
+
+  @@unique([userId, mutedDid])
+  @@index([userId])
+}
+
+model MutedWord {
+  id        String   @id @default(uuid())
+  userId    String
+  word      String
+  isRegex   Boolean  @default(false)
+  mutedAt   DateTime @default(now())
+  expiresAt DateTime?
+
+  @@index([userId])
+}

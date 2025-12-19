@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: skydeck-postgres
+    environment:
+      POSTGRES_USER: skydeck
+      POSTGRES_PASSWORD: skydeck
+      POSTGRES_DB: skydeck
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skydeck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - skydeck-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: skydeck-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - skydeck-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: skydeck-backend
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://skydeck:skydeck@postgres:5432/skydeck?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
+      SESSION_SECRET: ${SESSION_SECRET:-change-this-session-secret}
+      BLUESKY_SERVICE: https://bsky.social
+      FRONTEND_URL: http://localhost:5173
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - skydeck-network
+    volumes:
+      - uploads_data:/app/uploads
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: skydeck-frontend
+    environment:
+      VITE_API_URL: http://localhost:3001
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - skydeck-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
+
+networks:
+  skydeck-network:
+    driver: bridge
