@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import { useThemeStore } from './stores/themeStore';
@@ -8,19 +8,32 @@ import Settings from './pages/Settings';
 import Loading from './components/common/Loading';
 
 function App() {
-  const { user, isLoading, checkAuth } = useAuthStore();
+  const { user, isLoading, isAuthenticated, checkAuth } = useAuthStore();
   const { theme, applyTheme, fetchTheme } = useThemeStore();
+  const hasCheckedAuth = useRef(false);
+  const hasFetchedTheme = useRef(false);
 
+  // Check auth only once on mount
   useEffect(() => {
-    checkAuth();
+    if (!hasCheckedAuth.current) {
+      hasCheckedAuth.current = true;
+      checkAuth();
+    }
   }, [checkAuth]);
 
+  // Fetch theme only after authentication is confirmed
   useEffect(() => {
-    if (user) {
+    if (isAuthenticated && !isLoading && !hasFetchedTheme.current) {
+      hasFetchedTheme.current = true;
       fetchTheme();
     }
-  }, [user, fetchTheme]);
+    // Reset when logged out
+    if (!isAuthenticated && !isLoading) {
+      hasFetchedTheme.current = false;
+    }
+  }, [isAuthenticated, isLoading, fetchTheme]);
 
+  // Apply theme (this doesn't require auth)
   useEffect(() => {
     applyTheme(theme);
   }, [theme, applyTheme]);
@@ -37,15 +50,15 @@ function App() {
     <Routes>
       <Route
         path="/"
-        element={user ? <Home /> : <Navigate to="/login" replace />}
+        element={isAuthenticated ? <Home /> : <Navigate to="/login" replace />}
       />
       <Route
         path="/login"
-        element={user ? <Navigate to="/" replace /> : <Login />}
+        element={isAuthenticated ? <Navigate to="/" replace /> : <Login />}
       />
       <Route
         path="/settings"
-        element={user ? <Settings /> : <Navigate to="/login" replace />}
+        element={isAuthenticated ? <Settings /> : <Navigate to="/login" replace />}
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -4,11 +4,18 @@ class WebSocketService {
   constructor() {
     this.socket = null;
     this.listeners = new Map();
+    this.authErrorCallback = null;
   }
 
   connect(token) {
     if (this.socket?.connected) {
       return;
+    }
+
+    // Disconnect any existing socket first
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
     }
 
     this.socket = io({
@@ -28,13 +35,32 @@ class WebSocketService {
     });
 
     this.socket.on('connect_error', (error) => {
-      console.error('WebSocket connection error:', error);
+      console.error('WebSocket connection error:', error.message);
+
+      // Stop reconnecting on authentication errors
+      if (error.message === 'Authentication required' ||
+          error.message === 'Invalid token' ||
+          error.message === 'Session expired or invalid') {
+        console.log('Authentication error - stopping reconnection attempts');
+        this.socket.disconnect();
+        this.socket = null;
+
+        // Notify auth store to clear invalid token
+        if (this.authErrorCallback) {
+          this.authErrorCallback();
+        }
+      }
     });
 
     // Re-register all listeners
     this.listeners.forEach((callback, event) => {
       this.socket.on(event, callback);
     });
+  }
+
+  // Set callback for auth errors (to clear invalid tokens)
+  onAuthError(callback) {
+    this.authErrorCallback = callback;
   }
 
   disconnect() {

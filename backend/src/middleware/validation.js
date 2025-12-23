@@ -15,7 +15,10 @@ export const validate = (schema) => (req, res, next) => {
         field: err.path.join('.'),
         message: err.message,
       }));
-      next(new AppError('Validation failed', 400, 'VALIDATION_ERROR'));
+      console.error('Validation errors:', JSON.stringify(details, null, 2));
+      const appError = new AppError('Validation failed', 400, 'VALIDATION_ERROR');
+      appError.details = details;
+      next(appError);
     } else {
       next(error);
     }
@@ -89,8 +92,8 @@ export const schemas = {
       columnWidth: z.number().int().min(250).max(600).optional(),
       columnGap: z.number().int().min(0).max(32).optional(),
       compactMode: z.boolean().optional(),
-      customCss: z.string().max(10000).optional(),
-    }),
+      customCss: z.string().max(10000).nullable().optional(),
+    }).passthrough(),
   }),
 
   search: z.object({

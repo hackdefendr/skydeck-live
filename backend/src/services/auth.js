@@ -189,40 +189,62 @@ class AuthService {
 
   // Get authenticated Bluesky agent for user
   async getBlueskyAgent(user) {
-    // Try to create agent with current tokens
-    let agent = await blueskyService.createAuthenticatedAgent(
+    // Check if token needs refresh before creating agent
+    const shouldRefresh = this.shouldRefreshToken(user.accessJwt);
+
+    if (shouldRefresh) {
+      console.log(`[Auth] Token expired or expiring soon for ${user.handle}, refreshing...`);
+      const refreshResult = await this.refreshBlueskySession(user);
+      if (refreshResult.success) {
+        // Update user object with new tokens for this request
+        user.accessJwt = refreshResult.accessJwt;
+        user.refreshJwt = refreshResult.refreshJwt;
+      } else {
+        console.error(`[Auth] Token refresh failed for ${user.handle}:`, refreshResult.error);
+        // Continue with existing token - it might still work or will fail gracefully
+      }
+    }
+
+    // Create agent with (possibly refreshed) tokens
+    const agent = await blueskyService.createAuthenticatedAgent(
       user.accessJwt,
       user.refreshJwt,
       user.did,
       user.handle
     );
 
-    // If tokens might be expired, try refreshing
-    const tokenAge = this.getTokenAge(user.accessJwt);
-    if (tokenAge > 1800) { // 30 minutes
-      const refreshResult = await this.refreshBlueskySession(user);
-      if (refreshResult.success) {
-        agent = await blueskyService.createAuthenticatedAgent(
-          refreshResult.accessJwt,
-          refreshResult.refreshJwt,
-          user.did,
-          user.handle
-        );
-      }
-    }
-
     return agent;
   }
 
-  // Helper to estimate token age (basic check)
-  getTokenAge(jwt) {
+  // Check if token should be refreshed (expired or expiring within 5 minutes)
+  shouldRefreshToken(jwt) {
+    if (!jwt) return true;
+
     try {
       const payload = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64').toString());
       const exp = payload.exp;
       const now = Math.floor(Date.now() / 1000);
-      return exp - now < 0 ? Infinity : Math.floor(Date.now() / 1000) - (payload.iat || 0);
+      const bufferSeconds = 300; // 5 minute buffer before expiry
+
+      // Token should be refreshed if it expires within 5 minutes
+      return (exp - now) < bufferSeconds;
     } catch {
-      return Infinity;
+      // If we can't parse the token, assume it needs refresh
+      return true;
+    }
+  }
+
+  // Helper to get remaining time until token expires (in seconds)
+  getTokenExpiryTime(jwt) {
+    if (!jwt) return 0;
+
+    try {
+      const payload = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64').toString());
+      const exp = payload.exp;
+      const now = Math.floor(Date.now() / 1000);
+      return Math.max(0, exp - now);
+    } catch {
+      return 0;
     }
   }
 

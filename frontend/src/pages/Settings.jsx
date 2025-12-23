@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Palette, Layout, Bell, Shield, User, LogOut } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import ThemeCustomizer from '../components/theme/ThemeCustomizer';
+import LayoutSettings from '../components/settings/LayoutSettings';
+import NotificationSettings from '../components/settings/NotificationSettings';
+import ModerationSettings from '../components/settings/ModerationSettings';
 import Button from '../components/common/Button';
 
 function Settings() {
@@ -71,32 +74,11 @@ function Settings() {
           <main className="flex-1 min-w-0">
             {activeTab === 'theme' && <ThemeCustomizer />}
 
-            {activeTab === 'layout' && (
-              <div className="bg-bg-secondary rounded-xl p-6">
-                <h2 className="text-xl font-bold mb-4">Layout Settings</h2>
-                <p className="text-text-secondary">
-                  Column layout settings coming soon.
-                </p>
-              </div>
-            )}
+            {activeTab === 'layout' && <LayoutSettings />}
 
-            {activeTab === 'notifications' && (
-              <div className="bg-bg-secondary rounded-xl p-6">
-                <h2 className="text-xl font-bold mb-4">Notification Settings</h2>
-                <p className="text-text-secondary">
-                  Notification preferences coming soon.
-                </p>
-              </div>
-            )}
+            {activeTab === 'notifications' && <NotificationSettings />}
 
-            {activeTab === 'moderation' && (
-              <div className="bg-bg-secondary rounded-xl p-6">
-                <h2 className="text-xl font-bold mb-4">Moderation Settings</h2>
-                <p className="text-text-secondary">
-                  Blocked users, muted words, and content filtering coming soon.
-                </p>
-              </div>
-            )}
+            {activeTab === 'moderation' && <ModerationSettings />}
 
             {activeTab === 'account' && (
               <div className="bg-bg-secondary rounded-xl p-6">

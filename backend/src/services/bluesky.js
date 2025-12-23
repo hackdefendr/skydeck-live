@@ -1,36 +1,17 @@
 import { BskyAgent, RichText } from '@atproto/api';
 import config from '../config/index.js';
 import { cache, cacheKeys } from '../utils/cache.js';
+import { withRateLimit, rateLimiter } from '../utils/rateLimiter.js';
 
 class BlueskyService {
   constructor() {
     this.agents = new Map();
   }
 
-  // Create a custom fetch function that includes the API key header
-  _createFetchHandler() {
-    const apiKey = config.bluesky.apikey;
-    if (!apiKey) {
-      return undefined; // Use default fetch if no API key
-    }
-
-    return async (url, options = {}) => {
-      const headers = new Headers(options.headers);
-      headers.set('Authorization', `Bearer ${apiKey}`);
-
-      return fetch(url, {
-        ...options,
-        headers,
-      });
-    };
-  }
-
-  // Create a new BskyAgent with optional API key support
+  // Create a new BskyAgent
   _createAgent() {
-    const fetchHandler = this._createFetchHandler();
     return new BskyAgent({
       service: config.bluesky.service,
-      ...(fetchHandler && { fetch: fetchHandler }),
     });
   }
 
@@ -66,12 +47,23 @@ class BlueskyService {
     return agent;
   }
 
-  // Login with identifier and password
+  // Login with identifier and password (with rate limiting and exponential backoff)
   async login(identifier, password) {
     const agent = this._createAgent();
 
     try {
-      const response = await agent.login({ identifier, password });
+      const response = await withRateLimit.auth(
+        () => agent.login({ identifier, password }),
+        {
+          maxRetries: 3,
+          baseDelay: 5000, // Start with 5 second delay for auth
+          maxDelay: 120000, // Max 2 minutes between retries
+          onRetry: (attempt, delay, error) => {
+            console.log(`Login retry ${attempt + 1}: waiting ${delay}ms after error: ${error.message}`);
+          },
+        }
+      );
+
       return {
         success: true,
         did: response.data.did,
@@ -82,45 +74,74 @@ class BlueskyService {
         displayName: response.data.displayName,
       };
     } catch (error) {
-      console.error('Bluesky login error:', error);
+      console.error('Bluesky login error:', error.message);
+
+      // Provide more helpful error messages
+      let errorMessage = error.message || 'Login failed';
+      if (error.message?.includes('RateLimitExceeded') || error.status === 429) {
+        errorMessage = 'Too many login attempts. Please wait a few minutes and try again.';
+      }
+
       return {
         success: false,
-        error: error.message || 'Login failed',
+        error: errorMessage,
       };
     }
   }
 
-  // Refresh session
+  // Refresh session using the refreshJwt (with rate limiting)
   async refreshSession(refreshJwt) {
-    const agent = this._createAgent();
-
     try {
-      const response = await agent.resumeSession({
-        refreshJwt,
-        accessJwt: '',
-        did: '',
-        handle: '',
-      });
+      // Use the AT Protocol refresh endpoint directly
+      // The BskyAgent.refreshSession() method requires an authenticated agent,
+      // so we need to call the endpoint directly with the refresh token
+      const response = await withRateLimit.auth(
+        async () => {
+          const res = await fetch(`${config.bluesky.service}/xrpc/com.atproto.server.refreshSession`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${refreshJwt}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            const error = new Error(errorData.message || `Refresh failed: ${res.status}`);
+            error.status = res.status;
+            throw error;
+          }
+
+          return res.json();
+        },
+        { maxRetries: 2, baseDelay: 3000 }
+      );
+
       return {
         success: true,
-        accessJwt: response.data.accessJwt,
-        refreshJwt: response.data.refreshJwt,
+        accessJwt: response.accessJwt,
+        refreshJwt: response.refreshJwt,
+        did: response.did,
+        handle: response.handle,
       };
     } catch (error) {
+      console.error('Session refresh error:', error);
       return { success: false, error: error.message };
     }
   }
 
-  // Get profile
+  // Get profile (with rate limiting and caching)
   async getProfile(agent, actor) {
     const cacheKey = cacheKeys.userProfile(actor);
     const cached = await cache.get(cacheKey);
     if (cached) return cached;
 
     try {
-      const response = await agent.getProfile({ actor });
+      const response = await withRateLimit.read(
+        () => agent.getProfile({ actor })
+      );
       const profile = response.data;
-      await cache.set(cacheKey, profile, 60);
+      await cache.set(cacheKey, profile, 300); // Cache for 5 minutes
       return profile;
     } catch (error) {
       console.error('Get profile error:', error);
@@ -128,16 +149,18 @@ class BlueskyService {
     }
   }
 
-  // Update profile
+  // Update profile (with rate limiting)
   async updateProfile(agent, updates) {
     try {
-      await agent.upsertProfile((existing) => ({
-        ...existing,
-        displayName: updates.displayName ?? existing?.displayName,
-        description: updates.description ?? existing?.description,
-        avatar: updates.avatar ?? existing?.avatar,
-        banner: updates.banner ?? existing?.banner,
-      }));
+      await withRateLimit.write(
+        () => agent.upsertProfile((existing) => ({
+          ...existing,
+          displayName: updates.displayName ?? existing?.displayName,
+          description: updates.description ?? existing?.description,
+          avatar: updates.avatar ?? existing?.avatar,
+          banner: updates.banner ?? existing?.banner,
+        }))
+      );
       return { success: true };
     } catch (error) {
       console.error('Update profile error:', error);
@@ -145,10 +168,12 @@ class BlueskyService {
     }
   }
 
-  // Get timeline (home feed)
+  // Get timeline (home feed) with rate limiting
   async getTimeline(agent, { limit = 50, cursor } = {}) {
     try {
-      const response = await agent.getTimeline({ limit, cursor });
+      const response = await withRateLimit.read(
+        () => agent.getTimeline({ limit, cursor })
+      );
       return {
         feed: response.data.feed,
         cursor: response.data.cursor,
@@ -159,10 +184,12 @@ class BlueskyService {
     }
   }
 
-  // Get author feed
+  // Get author feed (with rate limiting)
   async getAuthorFeed(agent, actor, { limit = 50, cursor, filter = 'posts_and_author_threads' } = {}) {
     try {
-      const response = await agent.getAuthorFeed({ actor, limit, cursor, filter });
+      const response = await withRateLimit.read(
+        () => agent.getAuthorFeed({ actor, limit, cursor, filter })
+      );
       return {
         feed: response.data.feed,
         cursor: response.data.cursor,
@@ -173,10 +200,12 @@ class BlueskyService {
     }
   }
 
-  // Get custom feed
+  // Get custom feed (with rate limiting)
   async getFeed(agent, feed, { limit = 50, cursor } = {}) {
     try {
-      const response = await agent.app.bsky.feed.getFeed({ feed, limit, cursor });
+      const response = await withRateLimit.read(
+        () => agent.app.bsky.feed.getFeed({ feed, limit, cursor })
+      );
       return {
         feed: response.data.feed,
         cursor: response.data.cursor,
@@ -187,10 +216,12 @@ class BlueskyService {
     }
   }
 
-  // Get post thread
+  // Get post thread (with rate limiting)
   async getPostThread(agent, uri, { depth = 10, parentHeight = 80 } = {}) {
     try {
-      const response = await agent.getPostThread({ uri, depth, parentHeight });
+      const response = await withRateLimit.read(
+        () => agent.getPostThread({ uri, depth, parentHeight })
+      );
       return response.data.thread;
     } catch (error) {
       console.error('Get post thread error:', error);
@@ -198,7 +229,7 @@ class BlueskyService {
     }
   }
 
-  // Create post
+  // Create post (with rate limiting)
   async createPost(agent, { text, replyTo, embed, langs }) {
     try {
       const rt = new RichText({ text });
@@ -222,7 +253,9 @@ class BlueskyService {
         postRecord.embed = embed;
       }
 
-      const response = await agent.post(postRecord);
+      const response = await withRateLimit.write(
+        () => agent.post(postRecord)
+      );
       return {
         success: true,
         uri: response.uri,
@@ -234,10 +267,10 @@ class BlueskyService {
     }
   }
 
-  // Delete post
+  // Delete post (with rate limiting)
   async deletePost(agent, uri) {
     try {
-      await agent.deletePost(uri);
+      await withRateLimit.write(() => agent.deletePost(uri));
       return { success: true };
     } catch (error) {
       console.error('Delete post error:', error);
@@ -245,10 +278,12 @@ class BlueskyService {
     }
   }
 
-  // Like post
+  // Like post (with rate limiting)
   async likePost(agent, uri, cid) {
     try {
-      const response = await agent.like(uri, cid);
+      const response = await withRateLimit.write(
+        () => agent.like(uri, cid)
+      );
       return { success: true, uri: response.uri };
     } catch (error) {
       console.error('Like post error:', error);
@@ -256,10 +291,10 @@ class BlueskyService {
     }
   }
 
-  // Unlike post
+  // Unlike post (with rate limiting)
   async unlikePost(agent, likeUri) {
     try {
-      await agent.deleteLike(likeUri);
+      await withRateLimit.write(() => agent.deleteLike(likeUri));
       return { success: true };
     } catch (error) {
       console.error('Unlike post error:', error);
@@ -267,10 +302,12 @@ class BlueskyService {
     }
   }
 
-  // Repost
+  // Repost (with rate limiting)
   async repost(agent, uri, cid) {
     try {
-      const response = await agent.repost(uri, cid);
+      const response = await withRateLimit.write(
+        () => agent.repost(uri, cid)
+      );
       return { success: true, uri: response.uri };
     } catch (error) {
       console.error('Repost error:', error);
@@ -278,10 +315,10 @@ class BlueskyService {
     }
   }
 
-  // Delete repost
+  // Delete repost (with rate limiting)
   async deleteRepost(agent, repostUri) {
     try {
-      await agent.deleteRepost(repostUri);
+      await withRateLimit.write(() => agent.deleteRepost(repostUri));
       return { success: true };
     } catch (error) {
       console.error('Delete repost error:', error);
@@ -289,10 +326,12 @@ class BlueskyService {
     }
   }
 
-  // Get notifications
+  // Get notifications (with rate limiting)
   async getNotifications(agent, { limit = 50, cursor } = {}) {
     try {
-      const response = await agent.listNotifications({ limit, cursor });
+      const response = await withRateLimit.read(
+        () => agent.listNotifications({ limit, cursor })
+      );
       return {
         notifications: response.data.notifications,
         cursor: response.data.cursor,
@@ -304,10 +343,10 @@ class BlueskyService {
     }
   }
 
-  // Update seen notifications
+  // Update seen notifications (with rate limiting)
   async updateSeenNotifications(agent) {
     try {
-      await agent.updateSeenNotifications();
+      await withRateLimit.write(() => agent.updateSeenNotifications());
       return { success: true };
     } catch (error) {
       console.error('Update seen notifications error:', error);
@@ -315,10 +354,12 @@ class BlueskyService {
     }
   }
 
-  // Follow user
+  // Follow user (with rate limiting)
   async follow(agent, did) {
     try {
-      const response = await agent.follow(did);
+      const response = await withRateLimit.write(
+        () => agent.follow(did)
+      );
       return { success: true, uri: response.uri };
     } catch (error) {
       console.error('Follow error:', error);
@@ -326,10 +367,10 @@ class BlueskyService {
     }
   }
 
-  // Unfollow user
+  // Unfollow user (with rate limiting)
   async unfollow(agent, followUri) {
     try {
-      await agent.deleteFollow(followUri);
+      await withRateLimit.write(() => agent.deleteFollow(followUri));
       return { success: true };
     } catch (error) {
       console.error('Unfollow error:', error);
@@ -337,12 +378,14 @@ class BlueskyService {
     }
   }
 
-  // Block user
+  // Block user (with rate limiting)
   async block(agent, did) {
     try {
-      const response = await agent.app.bsky.graph.block.create(
-        { repo: agent.session.did },
-        { subject: did, createdAt: new Date().toISOString() }
+      const response = await withRateLimit.write(
+        () => agent.app.bsky.graph.block.create(
+          { repo: agent.session.did },
+          { subject: did, createdAt: new Date().toISOString() }
+        )
       );
       return { success: true, uri: response.uri };
     } catch (error) {
@@ -351,14 +394,16 @@ class BlueskyService {
     }
   }
 
-  // Unblock user
+  // Unblock user (with rate limiting)
   async unblock(agent, blockUri) {
     try {
       const { rkey } = this.parseAtUri(blockUri);
-      await agent.app.bsky.graph.block.delete({
-        repo: agent.session.did,
-        rkey,
-      });
+      await withRateLimit.write(
+        () => agent.app.bsky.graph.block.delete({
+          repo: agent.session.did,
+          rkey,
+        })
+      );
       return { success: true };
     } catch (error) {
       console.error('Unblock error:', error);
@@ -366,10 +411,10 @@ class BlueskyService {
     }
   }
 
-  // Mute user
+  // Mute user (with rate limiting)
   async mute(agent, did) {
     try {
-      await agent.mute(did);
+      await withRateLimit.write(() => agent.mute(did));
       return { success: true };
     } catch (error) {
       console.error('Mute error:', error);
@@ -377,10 +422,10 @@ class BlueskyService {
     }
   }
 
-  // Unmute user
+  // Unmute user (with rate limiting)
   async unmute(agent, did) {
     try {
-      await agent.unmute(did);
+      await withRateLimit.write(() => agent.unmute(did));
       return { success: true };
     } catch (error) {
       console.error('Unmute error:', error);
@@ -388,10 +433,12 @@ class BlueskyService {
     }
   }
 
-  // Search posts
+  // Search posts (with rate limiting)
   async searchPosts(agent, query, { limit = 25, cursor } = {}) {
     try {
-      const response = await agent.app.bsky.feed.searchPosts({ q: query, limit, cursor });
+      const response = await withRateLimit.read(
+        () => agent.app.bsky.feed.searchPosts({ q: query, limit, cursor })
+      );
       return {
         posts: response.data.posts,
         cursor: response.data.cursor,
@@ -402,10 +449,12 @@ class BlueskyService {
     }
   }
 
-  // Search actors
+  // Search actors (with rate limiting)
   async searchActors(agent, query, { limit = 25, cursor } = {}) {
     try {
-      const response = await agent.searchActors({ term: query, limit, cursor });
+      const response = await withRateLimit.read(
+        () => agent.searchActors({ term: query, limit, cursor })
+      );
       return {
         actors: response.data.actors,
         cursor: response.data.cursor,
@@ -416,10 +465,12 @@ class BlueskyService {
     }
   }
 
-  // Get followers
+  // Get followers (with rate limiting)
   async getFollowers(agent, actor, { limit = 50, cursor } = {}) {
     try {
-      const response = await agent.getFollowers({ actor, limit, cursor });
+      const response = await withRateLimit.read(
+        () => agent.getFollowers({ actor, limit, cursor })
+      );
       return {
         followers: response.data.followers,
         cursor: response.data.cursor,
@@ -430,10 +481,12 @@ class BlueskyService {
     }
   }
 
-  // Get follows
+  // Get follows (with rate limiting)
   async getFollows(agent, actor, { limit = 50, cursor } = {}) {
     try {
-      const response = await agent.getFollows({ actor, limit, cursor });
+      const response = await withRateLimit.read(
+        () => agent.getFollows({ actor, limit, cursor })
+      );
       return {
         follows: response.data.follows,
         cursor: response.data.cursor,
@@ -444,10 +497,12 @@ class BlueskyService {
     }
   }
 
-  // Get lists
+  // Get lists (with rate limiting)
   async getLists(agent, actor, { limit = 50, cursor } = {}) {
     try {
-      const response = await agent.app.bsky.graph.getLists({ actor, limit, cursor });
+      const response = await withRateLimit.read(
+        () => agent.app.bsky.graph.getLists({ actor, limit, cursor })
+      );
       return {
         lists: response.data.lists,
         cursor: response.data.cursor,
@@ -458,10 +513,12 @@ class BlueskyService {
     }
   }
 
-  // Get list feed
+  // Get list feed (with rate limiting)
   async getListFeed(agent, list, { limit = 50, cursor } = {}) {
     try {
-      const response = await agent.app.bsky.feed.getListFeed({ list, limit, cursor });
+      const response = await withRateLimit.read(
+        () => agent.app.bsky.feed.getListFeed({ list, limit, cursor })
+      );
       return {
         feed: response.data.feed,
         cursor: response.data.cursor,
@@ -472,10 +529,13 @@ class BlueskyService {
     }
   }
 
-  // Upload blob (for images/media)
+  // Upload blob (for images/media) - with rate limiting
   async uploadBlob(agent, data, mimeType) {
     try {
-      const response = await agent.uploadBlob(data, { encoding: mimeType });
+      const response = await withRateLimit.write(
+        () => agent.uploadBlob(data, { encoding: mimeType }),
+        { maxRetries: 2, baseDelay: 2000 }
+      );
       return {
         success: true,
         blob: response.data.blob,
@@ -486,10 +546,12 @@ class BlueskyService {
     }
   }
 
-  // Get actor likes
+  // Get actor likes (with rate limiting)
   async getActorLikes(agent, actor, { limit = 50, cursor } = {}) {
     try {
-      const response = await agent.app.bsky.feed.getActorLikes({ actor, limit, cursor });
+      const response = await withRateLimit.read(
+        () => agent.app.bsky.feed.getActorLikes({ actor, limit, cursor })
+      );
       return {
         feed: response.data.feed,
         cursor: response.data.cursor,
@@ -500,24 +562,35 @@ class BlueskyService {
     }
   }
 
-  // Get suggested feeds
+  // Get suggested feeds (with rate limiting and caching)
   async getSuggestedFeeds(agent, { limit = 50, cursor } = {}) {
+    // Cache suggested feeds as they don't change frequently
+    const cacheKey = `suggested_feeds_${limit}_${cursor || 'initial'}`;
+    const cached = await cache.get(cacheKey);
+    if (cached) return cached;
+
     try {
-      const response = await agent.app.bsky.feed.getSuggestedFeeds({ limit, cursor });
-      return {
+      const response = await withRateLimit.read(
+        () => agent.app.bsky.feed.getSuggestedFeeds({ limit, cursor })
+      );
+      const result = {
         feeds: response.data.feeds,
         cursor: response.data.cursor,
       };
+      await cache.set(cacheKey, result, 600); // Cache for 10 minutes
+      return result;
     } catch (error) {
       console.error('Get suggested feeds error:', error);
       throw error;
     }
   }
 
-  // Get saved feeds
+  // Get saved feeds (with rate limiting and caching)
   async getSavedFeeds(agent) {
     try {
-      const response = await agent.app.bsky.actor.getPreferences();
+      const response = await withRateLimit.read(
+        () => agent.app.bsky.actor.getPreferences()
+      );
       const savedFeedsPref = response.data.preferences.find(
         (p) => p.$type === 'app.bsky.actor.defs#savedFeedsPref'
       );
@@ -528,19 +601,132 @@ class BlueskyService {
     }
   }
 
-  // Report content
+  // Get all preferences (with rate limiting)
+  async getPreferences(agent) {
+    try {
+      const response = await withRateLimit.read(
+        () => agent.app.bsky.actor.getPreferences()
+      );
+      return response.data.preferences;
+    } catch (error) {
+      console.error('Get preferences error:', error);
+      throw error;
+    }
+  }
+
+  // Get content label preferences
+  async getContentLabelPrefs(agent) {
+    try {
+      const preferences = await this.getPreferences(agent);
+      const labelPrefs = preferences.filter(
+        (p) => p.$type === 'app.bsky.actor.defs#contentLabelPref'
+      );
+      return labelPrefs;
+    } catch (error) {
+      console.error('Get content label prefs error:', error);
+      throw error;
+    }
+  }
+
+  // Set content label preference (with rate limiting)
+  async setContentLabelPref(agent, { labelerDid, label, visibility }) {
+    try {
+      // Get current preferences
+      const currentPrefs = await this.getPreferences(agent);
+
+      // Filter out the existing pref for this label (if any)
+      const otherPrefs = currentPrefs.filter(
+        (p) => !(p.$type === 'app.bsky.actor.defs#contentLabelPref' &&
+                 p.label === label &&
+                 (p.labelerDid || null) === (labelerDid || null))
+      );
+
+      // Add the new preference
+      const newPref = {
+        $type: 'app.bsky.actor.defs#contentLabelPref',
+        label,
+        visibility, // 'ignore' | 'warn' | 'hide'
+      };
+      if (labelerDid) {
+        newPref.labelerDid = labelerDid;
+      }
+
+      const updatedPrefs = [...otherPrefs, newPref];
+
+      await withRateLimit.write(
+        () => agent.app.bsky.actor.putPreferences({ preferences: updatedPrefs })
+      );
+
+      return { success: true };
+    } catch (error) {
+      console.error('Set content label pref error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get adult content enabled preference
+  async getAdultContentEnabled(agent) {
+    try {
+      const preferences = await this.getPreferences(agent);
+      const adultPref = preferences.find(
+        (p) => p.$type === 'app.bsky.actor.defs#adultContentPref'
+      );
+      return adultPref?.enabled ?? false;
+    } catch (error) {
+      console.error('Get adult content pref error:', error);
+      throw error;
+    }
+  }
+
+  // Set adult content enabled (with rate limiting)
+  async setAdultContentEnabled(agent, enabled) {
+    try {
+      const currentPrefs = await this.getPreferences(agent);
+
+      // Filter out existing adult content pref
+      const otherPrefs = currentPrefs.filter(
+        (p) => p.$type !== 'app.bsky.actor.defs#adultContentPref'
+      );
+
+      const updatedPrefs = [
+        ...otherPrefs,
+        {
+          $type: 'app.bsky.actor.defs#adultContentPref',
+          enabled,
+        },
+      ];
+
+      await withRateLimit.write(
+        () => agent.app.bsky.actor.putPreferences({ preferences: updatedPrefs })
+      );
+
+      return { success: true };
+    } catch (error) {
+      console.error('Set adult content pref error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Report content (with rate limiting)
   async reportContent(agent, { reasonType, reason, subject }) {
     try {
-      await agent.app.bsky.moderation.createReport({
-        reasonType,
-        reason,
-        subject,
-      });
+      await withRateLimit.write(
+        () => agent.app.bsky.moderation.createReport({
+          reasonType,
+          reason,
+          subject,
+        })
+      );
       return { success: true };
     } catch (error) {
       console.error('Report content error:', error);
       return { success: false, error: error.message };
     }
+  }
+
+  // Get rate limit status for monitoring
+  getRateLimitStatus() {
+    return rateLimiter.getAllStatus();
   }
 
   // Parse AT URI helper

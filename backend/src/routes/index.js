@@ -8,6 +8,7 @@ import messagesRoutes from './messages.js';
 import columnsRoutes from './columns.js';
 import themesRoutes from './themes.js';
 import moderationRoutes from './moderation.js';
+import preferencesRoutes from './preferences.js';
 import mediaRoutes from './media.js';
 import searchRoutes from './search.js';
 
@@ -23,6 +24,7 @@ router.use('/messages', messagesRoutes);
 router.use('/columns', columnsRoutes);
 router.use('/themes', themesRoutes);
 router.use('/moderation', moderationRoutes);
+router.use('/preferences', preferencesRoutes);
 router.use('/media', mediaRoutes);
 router.use('/search', searchRoutes);
 
@@ -41,6 +43,7 @@ router.get('/', (req, res) => {
       '/api/columns',
       '/api/themes',
       '/api/moderation',
+      '/api/preferences',
       '/api/media',
       '/api/search',
     ],

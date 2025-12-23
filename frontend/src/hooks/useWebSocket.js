@@ -5,12 +5,21 @@ import { useFeedStore } from '../stores/feedStore';
 import wsService from '../services/websocket';
 
 export function useWebSocket() {
-  const { token } = useAuthStore();
+  const { token, isAuthenticated, logout } = useAuthStore();
   const { addNotification, fetchUnreadCount } = useNotificationStore();
   const { addToFeed } = useFeedStore();
 
   useEffect(() => {
-    if (token) {
+    // Set up auth error handler to clear stale tokens
+    wsService.onAuthError(() => {
+      console.log('WebSocket auth failed - clearing stale token');
+      logout();
+    });
+  }, [logout]);
+
+  useEffect(() => {
+    // Only connect if we're fully authenticated (not just have a token)
+    if (isAuthenticated && token) {
       wsService.connect(token);
 
       // Listen for new notifications
@@ -38,8 +47,11 @@ export function useWebSocket() {
         unsubMessage();
         wsService.disconnect();
       };
+    } else {
+      // Disconnect if not authenticated
+      wsService.disconnect();
     }
-  }, [token, addNotification]);
+  }, [isAuthenticated, token, addNotification]);
 
   const subscribeToFeed = useCallback((feedType, feedUri) => {
     wsService.subscribeToFeed(feedType, feedUri);

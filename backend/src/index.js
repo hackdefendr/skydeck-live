@@ -61,6 +61,20 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Rate limit status (for monitoring)
+app.get('/api/status/rate-limits', (req, res) => {
+  const { blueskyService } = require('./services/bluesky.js');
+  const { cache } = require('./utils/cache.js');
+
+  res.json({
+    rateLimits: blueskyService.getRateLimitStatus(),
+    cache: {
+      inFlightRequests: cache.getInFlightCount(),
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // API routes
 app.use('/api', routes);
 

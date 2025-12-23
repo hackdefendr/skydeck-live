@@ -51,8 +51,33 @@ export const useThemeStore = create(
 
       saveTheme: async () => {
         const { theme } = get();
+        // Only send the fields that the server expects
+        const themeData = {
+          name: theme.name,
+          mode: theme.mode,
+          primaryColor: theme.primaryColor,
+          secondaryColor: theme.secondaryColor,
+          accentColor: theme.accentColor,
+          bgPrimary: theme.bgPrimary,
+          bgSecondary: theme.bgSecondary,
+          bgTertiary: theme.bgTertiary,
+          textPrimary: theme.textPrimary,
+          textSecondary: theme.textSecondary,
+          textMuted: theme.textMuted,
+          borderColor: theme.borderColor,
+          fontFamily: theme.fontFamily,
+          fontSize: theme.fontSize,
+          columnWidth: theme.columnWidth,
+          columnGap: theme.columnGap,
+          compactMode: theme.compactMode,
+          customCss: theme.customCss || '',
+        };
         try {
-          await api.patch('/themes', theme);
+          const response = await api.patch('/themes', themeData);
+          // Update store with server response to ensure sync
+          if (response.data.theme) {
+            set({ theme: { ...theme, ...response.data.theme } });
+          }
           return { success: true };
         } catch (error) {
           console.error('Save theme error:', error);

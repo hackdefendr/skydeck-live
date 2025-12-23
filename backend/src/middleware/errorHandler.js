@@ -52,10 +52,14 @@ export const errorHandler = (err, req, res, next) => {
 
   // App errors
   if (err instanceof AppError) {
-    return res.status(err.statusCode).json({
+    const response = {
       error: err.message,
       code: err.code,
-    });
+    };
+    if (err.details) {
+      response.details = err.details;
+    }
+    return res.status(err.statusCode).json(response);
   }
 
   // Default error

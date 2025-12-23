@@ -13,6 +13,8 @@ export const authenticate = async (req, res, next) => {
     }
 
     if (!token) {
+      // Log which endpoint is being hit without auth for debugging
+      console.log(`[AUTH] No token for ${req.method} ${req.originalUrl} from ${req.ip}`);
       throw new AppError('Authentication required', 401, 'AUTH_REQUIRED');
     }
 
