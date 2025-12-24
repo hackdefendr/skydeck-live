@@ -33,10 +33,16 @@ export const feedsService = {
     return response.data;
   },
 
-  // Get saved feeds
+  // Get saved feeds (just URIs)
   async getSavedFeeds() {
     const response = await api.get('/feeds/saved');
     return response.data.feeds;
+  },
+
+  // Get saved feeds with full info
+  async getSavedFeedsWithInfo() {
+    const response = await api.get('/feeds/saved/info');
+    return response.data.feeds || [];
   },
 
   // Get mentions

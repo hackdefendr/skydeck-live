@@ -5,6 +5,7 @@ import { useNotificationStore } from '../../stores/notificationStore';
 import Button from '../common/Button';
 import Avatar from '../common/Avatar';
 import Dropdown from '../common/Dropdown';
+import Logo from '../common/Logo';
 
 function Header() {
   const { user, logout } = useAuth();
@@ -15,13 +16,7 @@ function Header() {
       {/* Logo */}
       <Link to="/" className="flex items-center gap-2">
         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-          <svg
-            className="w-5 h-5 text-primary"
-            viewBox="0 0 100 100"
-            fill="currentColor"
-          >
-            <path d="M30 40 L50 25 L70 40 L70 70 L30 70 Z" />
-          </svg>
+          <Logo size={24} className="text-primary" />
         </div>
         <span className="font-bold text-lg hidden sm:block">SkyDeck</span>
       </Link>

@@ -4,14 +4,38 @@ A feature-complete Bluesky social media web frontend with a multi-column "deck" 
 
 ## Features
 
+### Core Features
 - **Multi-Column Layout**: Drag-and-drop customizable columns for Home, Notifications, Messages, Search, Lists, Custom Feeds, and Profiles
+- **Independent Column Scrolling**: Each column scrolls independently from the main window
 - **Full Bluesky Integration**: Complete ATProto API support for posts, feeds, DMs, notifications, and moderation
 - **Theme Customization**: Full control over colors, typography, layout, and custom CSS
 - **Real-time Updates**: WebSocket-powered live feeds and notifications
-- **Media Support**: Images, videos, GIFs, and link previews
-- **Moderation Tools**: Block, mute, report, and word filtering
 - **Responsive Design**: Works on desktop and mobile
 - **Accessible**: WCAG 2.2 compliant with keyboard navigation
+
+### Post Composer
+- **Slide-Out Composer**: Full-featured post composer that slides out from the left sidebar
+- **Image Upload**: Upload up to 4 images per post with alt text support
+- **Video Upload**: Upload videos (MP4, WebM, MOV) up to 50MB with progress indicator
+- **GIF Search**: Integrated GIPHY search for adding animated GIFs to posts
+- **Quote Posts**: Quote other posts with optional text and media attachments
+- **Reply Support**: Reply to posts directly from the feed or post viewer
+
+### Post Display
+- **Post Viewer Modal**: Click any post to open a detailed view with full thread context
+- **Thread Navigation**: View parent posts and all replies in the post viewer
+- **Quote Post Display**: Quoted posts are displayed in full with embedded media
+- **Repost Indicators**: Clear visual indication of reposts with attribution
+- **User Display**: Username and handle shown on separate lines for clarity
+
+### Media Support
+- **Images**: Full-size image lightbox with alt text display
+- **Videos**: Video preview with playback controls
+- **External Links**: Rich link previews with thumbnails
+- **GIFs**: Animated GIF support via GIPHY integration
+
+### Moderation Tools
+- Block, mute, report, and word filtering
 
 ## Tech Stack
 
@@ -128,6 +152,14 @@ skydeck/
 - `GET /api/feeds/timeline` - Get home timeline
 - `GET /api/feeds/feed/:feedUri` - Get custom feed
 - `GET /api/feeds/mentions` - Get mentions
+- `GET /api/feeds/saved` - Get user's saved custom feeds
+- `GET /api/feeds/suggested` - Get suggested feeds to discover
+
+### Media
+- `POST /api/media/images` - Upload images (up to 4)
+- `POST /api/media/video` - Upload video file
+- `GET /api/media/giphy/search` - Search GIPHY for GIFs
+- `GET /api/media/giphy/trending` - Get trending GIFs
 
 ### Columns
 - `GET /api/columns` - Get user's columns

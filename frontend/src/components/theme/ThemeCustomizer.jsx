@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Palette, Download, Upload, RotateCcw, Check } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Palette, Download, Upload, RotateCcw, Check, Sparkles } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import ColorPicker from './ColorPicker';
 import Button from '../common/Button';
+import Logo from '../common/Logo';
+import { LOGO_VARIANTS, LOGO_LABELS } from '../common/logos';
 import { showSuccessToast, showErrorToast } from '../common/Toast';
 
 function ThemeCustomizer() {
@@ -300,6 +302,78 @@ function ThemeCustomizer() {
             />
             <span className="text-text-primary">Compact Mode</span>
           </label>
+        </div>
+      </div>
+
+      {/* Logo Variant */}
+      <div className="bg-bg-secondary rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Sparkles className="w-5 h-5 text-primary" />
+          <h3 className="text-lg font-semibold">Logo Style</h3>
+        </div>
+        <p className="text-text-secondary text-sm mb-4">
+          Choose a logo style. "Auto" automatically changes based on the current season or holiday.
+        </p>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          {/* Auto option */}
+          <button
+            onClick={() => {
+              updateTheme({ logoVariant: 'auto' });
+              localStorage.setItem('logoVariant', 'auto');
+              setHasChanges(true);
+            }}
+            className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-colors ${
+              theme.logoVariant === 'auto' || !theme.logoVariant
+                ? 'border-primary bg-primary/10'
+                : 'border-border hover:border-text-muted'
+            }`}
+          >
+            <div className="w-10 h-10 rounded-full bg-bg-tertiary flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-primary" />
+            </div>
+            <span className="text-xs font-medium">Auto</span>
+          </button>
+
+          {/* Logo variants */}
+          {Object.entries(LOGO_VARIANTS).map(([key, value]) => (
+            <button
+              key={key}
+              onClick={() => {
+                updateTheme({ logoVariant: value });
+                localStorage.setItem('logoVariant', value);
+                setHasChanges(true);
+              }}
+              className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-colors ${
+                theme.logoVariant === value
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border hover:border-text-muted'
+              }`}
+            >
+              <div className="w-10 h-10 rounded-full bg-bg-tertiary flex items-center justify-center text-primary">
+                <Logo size={28} variant={value} />
+              </div>
+              <span className="text-xs font-medium">{LOGO_LABELS[value]}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Current preview */}
+        <div className="mt-6 pt-4 border-t border-border">
+          <p className="text-text-secondary text-sm mb-3">Current Logo Preview:</p>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <Logo size={32} variant={theme.logoVariant || 'auto'} className="text-primary" />
+            </div>
+            <div>
+              <p className="font-semibold">SkyDeck</p>
+              <p className="text-text-muted text-sm">
+                {theme.logoVariant === 'auto' || !theme.logoVariant
+                  ? `Auto-detected: ${LOGO_LABELS[Logo.detectVariant()] || 'Default'}`
+                  : LOGO_LABELS[theme.logoVariant] || 'Default'}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 

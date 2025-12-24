@@ -7,6 +7,7 @@ import {
   Trash2,
   Plus,
   RotateCcw,
+  RefreshCw,
   Home,
   Bell,
   AtSign,
@@ -18,6 +19,15 @@ import {
   Heart,
   Bookmark,
 } from 'lucide-react';
+
+const REFRESH_OPTIONS = [
+  { value: 0, label: 'Off' },
+  { value: 15, label: '15s' },
+  { value: 30, label: '30s' },
+  { value: 60, label: '1m' },
+  { value: 120, label: '2m' },
+  { value: 300, label: '5m' },
+];
 import {
   DndContext,
   closestCenter,
@@ -35,8 +45,10 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useColumns } from '../../hooks/useColumns';
+import api from '../../services/api';
 import Button from '../common/Button';
 import Modal from '../common/Modal';
+import Loading from '../common/Loading';
 import { showSuccessToast, showErrorToast } from '../common/Toast';
 
 const COLUMN_TYPES = [
@@ -57,7 +69,7 @@ function getIconForType(type) {
   return found ? found.icon : Layout;
 }
 
-function SortableColumnItem({ column, onToggleVisibility, onRemove, onWidthChange }) {
+function SortableColumnItem({ column, onToggleVisibility, onRemove, onWidthChange, onRefreshIntervalChange }) {
   const {
     attributes,
     listeners,
@@ -79,36 +91,22 @@ function SortableColumnItem({ column, onToggleVisibility, onRemove, onWidthChang
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-3 p-3 bg-bg-tertiary rounded-lg ${
-        isDragging ? 'shadow-lg' : ''
-      }`}
+      className={`p-3 bg-bg-tertiary rounded-lg ${isDragging ? 'shadow-lg' : ''}`}
     >
-      <button
-        {...attributes}
-        {...listeners}
-        className="p-1 cursor-grab active:cursor-grabbing text-text-muted hover:text-text-secondary"
-      >
-        <GripVertical className="w-4 h-4" />
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          {...attributes}
+          {...listeners}
+          className="p-1 cursor-grab active:cursor-grabbing text-text-muted hover:text-text-secondary"
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
 
-      <Icon className="w-5 h-5 text-text-secondary" />
+        <Icon className="w-5 h-5 text-text-secondary" />
 
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-text-primary truncate">{column.title}</p>
-        <p className="text-xs text-text-muted">{column.type}</p>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-text-muted">Width:</label>
-          <input
-            type="number"
-            min="280"
-            max="500"
-            value={column.width || 350}
-            onChange={(e) => onWidthChange(column.id, parseInt(e.target.value))}
-            className="w-16 px-2 py-1 text-xs rounded bg-bg-secondary border border-border"
-          />
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-text-primary truncate">{column.title}</p>
+          <p className="text-xs text-text-muted">{column.type}</p>
         </div>
 
         <button
@@ -135,6 +133,38 @@ function SortableColumnItem({ column, onToggleVisibility, onRemove, onWidthChang
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Column settings row */}
+      <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/50">
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-text-muted">Width:</label>
+          <input
+            type="number"
+            min="280"
+            max="500"
+            value={column.width || 350}
+            onChange={(e) => onWidthChange(column.id, parseInt(e.target.value))}
+            className="w-16 px-2 py-1 text-xs rounded bg-bg-secondary border border-border"
+          />
+          <span className="text-xs text-text-muted">px</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <RefreshCw className="w-3.5 h-3.5 text-text-muted" />
+          <label className="text-xs text-text-muted">Auto-refresh:</label>
+          <select
+            value={column.refreshInterval ?? 60}
+            onChange={(e) => onRefreshIntervalChange(column.id, parseInt(e.target.value))}
+            className="px-2 py-1 text-xs rounded bg-bg-secondary border border-border"
+          >
+            {REFRESH_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
     </div>
   );
 }
@@ -145,6 +175,38 @@ function AddColumnModal({ isOpen, onClose, onAdd, existingTypes }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [feedUri, setFeedUri] = useState('');
   const [profileDid, setProfileDid] = useState('');
+  const [savedFeeds, setSavedFeeds] = useState([]);
+  const [suggestedFeeds, setSuggestedFeeds] = useState([]);
+  const [isLoadingFeeds, setIsLoadingFeeds] = useState(false);
+  const [showManualFeedInput, setShowManualFeedInput] = useState(false);
+  const [feedTab, setFeedTab] = useState('saved'); // 'saved' or 'suggested'
+
+  // Fetch feeds when FEED type is selected
+  useEffect(() => {
+    if (selectedType === 'FEED' && isOpen) {
+      fetchFeeds();
+    }
+  }, [selectedType, isOpen]);
+
+  const fetchFeeds = async () => {
+    setIsLoadingFeeds(true);
+    try {
+      const [savedRes, suggestedRes] = await Promise.all([
+        api.get('/feeds/saved/info'),
+        api.get('/feeds/suggested', { params: { limit: 25 } }),
+      ]);
+      setSavedFeeds(savedRes.data.feeds || []);
+      setSuggestedFeeds(suggestedRes.data.feeds || []);
+    } catch (error) {
+      console.error('Failed to fetch feeds:', error);
+    }
+    setIsLoadingFeeds(false);
+  };
+
+  const handleSelectFeed = (feed) => {
+    setFeedUri(feed.uri);
+    setTitle(feed.displayName || 'Custom Feed');
+  };
 
   const handleAdd = async () => {
     if (!selectedType) return;
@@ -168,19 +230,27 @@ function AddColumnModal({ isOpen, onClose, onAdd, existingTypes }) {
     const result = await onAdd(columnData);
     if (result.success) {
       showSuccessToast('Column added!');
-      onClose();
-      setSelectedType(null);
-      setTitle('');
-      setSearchQuery('');
-      setFeedUri('');
-      setProfileDid('');
+      handleClose();
     } else {
       showErrorToast('Failed to add column');
     }
   };
 
+  const handleClose = () => {
+    onClose();
+    setSelectedType(null);
+    setTitle('');
+    setSearchQuery('');
+    setFeedUri('');
+    setProfileDid('');
+    setShowManualFeedInput(false);
+    setFeedTab('saved');
+  };
+
+  const displayedFeeds = feedTab === 'saved' ? savedFeeds : suggestedFeeds;
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Add Column">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Add Column">
       <div className="p-6 space-y-4">
         <div>
           <label className="block text-sm font-medium text-text-secondary mb-2">
@@ -196,6 +266,8 @@ function AddColumnModal({ isOpen, onClose, onAdd, existingTypes }) {
                   onClick={() => {
                     setSelectedType(ct.type);
                     setTitle(ct.label);
+                    setFeedUri('');
+                    setShowManualFeedInput(false);
                   }}
                   className={`flex items-center gap-2 p-3 rounded-lg border transition-colors ${
                     isSelected
@@ -245,17 +317,111 @@ function AddColumnModal({ isOpen, onClose, onAdd, existingTypes }) {
             )}
 
             {selectedType === 'FEED' && (
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-2">
-                  Feed URI
-                </label>
-                <input
-                  type="text"
-                  value={feedUri}
-                  onChange={(e) => setFeedUri(e.target.value)}
-                  placeholder="at://did:plc:.../app.bsky.feed.generator/..."
-                  className="w-full"
-                />
+              <div className="space-y-3">
+                {/* Feed tabs */}
+                <div className="flex border-b border-border">
+                  <button
+                    onClick={() => setFeedTab('saved')}
+                    className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                      feedTab === 'saved'
+                        ? 'text-primary border-b-2 border-primary'
+                        : 'text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    My Feeds ({savedFeeds.length})
+                  </button>
+                  <button
+                    onClick={() => setFeedTab('suggested')}
+                    className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                      feedTab === 'suggested'
+                        ? 'text-primary border-b-2 border-primary'
+                        : 'text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    Discover
+                  </button>
+                </div>
+
+                {/* Feed list */}
+                {isLoadingFeeds ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loading size="md" />
+                  </div>
+                ) : displayedFeeds.length > 0 ? (
+                  <div className="max-h-48 overflow-y-auto space-y-2">
+                    {displayedFeeds.map((feed) => (
+                      <button
+                        key={feed.uri}
+                        onClick={() => handleSelectFeed(feed)}
+                        className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors text-left ${
+                          feedUri === feed.uri
+                            ? 'border-primary bg-primary/10'
+                            : 'border-border hover:border-text-muted'
+                        }`}
+                      >
+                        {feed.avatar ? (
+                          <img
+                            src={feed.avatar}
+                            alt=""
+                            className="w-10 h-10 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-bg-tertiary flex items-center justify-center">
+                            <Rss className="w-5 h-5 text-text-muted" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-text-primary truncate">
+                            {feed.displayName}
+                          </p>
+                          <p className="text-xs text-text-muted truncate">
+                            by @{feed.creator?.handle}
+                          </p>
+                          {feed.description && (
+                            <p className="text-xs text-text-secondary line-clamp-1 mt-0.5">
+                              {feed.description}
+                            </p>
+                          )}
+                        </div>
+                        {feed.likeCount > 0 && (
+                          <span className="text-xs text-text-muted flex items-center gap-1">
+                            <Heart className="w-3 h-3" />
+                            {feed.likeCount}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-text-muted">
+                    <Rss className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">
+                      {feedTab === 'saved' ? 'No saved feeds found' : 'No suggested feeds'}
+                    </p>
+                    <p className="text-xs mt-1">
+                      {feedTab === 'saved' && 'Save feeds in Bluesky to see them here'}
+                    </p>
+                  </div>
+                )}
+
+                {/* Manual input toggle */}
+                <div className="pt-2 border-t border-border">
+                  <button
+                    onClick={() => setShowManualFeedInput(!showManualFeedInput)}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    {showManualFeedInput ? 'Hide manual input' : 'Enter feed URI manually'}
+                  </button>
+                  {showManualFeedInput && (
+                    <input
+                      type="text"
+                      value={feedUri}
+                      onChange={(e) => setFeedUri(e.target.value)}
+                      placeholder="at://did:plc:.../app.bsky.feed.generator/..."
+                      className="w-full mt-2"
+                    />
+                  )}
+                </div>
               </div>
             )}
 
@@ -277,13 +443,13 @@ function AddColumnModal({ isOpen, onClose, onAdd, existingTypes }) {
         )}
 
         <div className="flex justify-end gap-2 pt-4">
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={handleClose}>
             Cancel
           </Button>
           <Button
             variant="primary"
             onClick={handleAdd}
-            disabled={!selectedType}
+            disabled={!selectedType || (selectedType === 'FEED' && !feedUri)}
           >
             Add Column
           </Button>
@@ -361,6 +527,16 @@ function LayoutSettings() {
     await updateColumn(id, { width });
   };
 
+  const handleRefreshIntervalChange = async (id, refreshInterval) => {
+    const result = await updateColumn(id, { refreshInterval });
+    if (result.success) {
+      const label = REFRESH_OPTIONS.find((o) => o.value === refreshInterval)?.label || `${refreshInterval}s`;
+      showSuccessToast(`Auto-refresh set to ${label}`);
+    } else {
+      showErrorToast('Failed to update refresh interval');
+    }
+  };
+
   const handleReset = async () => {
     if (!confirm('Reset to default columns? This will remove all custom columns.')) return;
     const result = await resetColumns();
@@ -425,6 +601,7 @@ function LayoutSettings() {
                   onToggleVisibility={handleToggleVisibility}
                   onRemove={handleRemove}
                   onWidthChange={handleWidthChange}
+                  onRefreshIntervalChange={handleRefreshIntervalChange}
                 />
               ))}
             </div>

@@ -130,6 +130,14 @@ function MediaPreview({ embed }) {
       );
     }
 
+    if (record.$type === 'app.bsky.embed.record#viewBlocked') {
+      return (
+        <div className="rounded-xl border border-border p-4 text-text-muted">
+          Post is blocked
+        </div>
+      );
+    }
+
     const author = record.author;
     const value = record.value;
 
@@ -137,23 +145,31 @@ function MediaPreview({ embed }) {
 
     return (
       <div className="rounded-xl border border-border p-3 hover:bg-bg-tertiary transition-colors">
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-start gap-2 mb-2">
           {author.avatar && (
             <img
               src={author.avatar}
               alt=""
-              className="w-5 h-5 rounded-full"
+              className="w-6 h-6 rounded-full flex-shrink-0"
             />
           )}
-          <span className="font-medium text-sm">
-            {author.displayName || author.handle}
-          </span>
-          <span className="text-text-muted text-sm">@{author.handle}</span>
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-sm truncate">
+              {author.displayName || author.handle}
+            </div>
+            <div className="text-text-muted text-xs truncate">@{author.handle}</div>
+          </div>
         </div>
         {value.text && (
-          <p className="text-text-primary text-sm line-clamp-3">
+          <p className="text-text-primary text-sm whitespace-pre-wrap break-words">
             {value.text}
           </p>
+        )}
+        {/* Show embedded media in quoted post */}
+        {record.embeds && record.embeds.length > 0 && (
+          <div className="mt-2">
+            <MediaPreview embed={record.embeds[0]} />
+          </div>
         )}
       </div>
     );

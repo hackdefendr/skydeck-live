@@ -11,6 +11,7 @@ import moderationRoutes from './moderation.js';
 import preferencesRoutes from './preferences.js';
 import mediaRoutes from './media.js';
 import searchRoutes from './search.js';
+import giphyRoutes from './giphy.js';
 
 const router = Router();
 
@@ -27,6 +28,7 @@ router.use('/moderation', moderationRoutes);
 router.use('/preferences', preferencesRoutes);
 router.use('/media', mediaRoutes);
 router.use('/search', searchRoutes);
+router.use('/giphy', giphyRoutes);
 
 // API info
 router.get('/', (req, res) => {
@@ -46,6 +48,7 @@ router.get('/', (req, res) => {
       '/api/preferences',
       '/api/media',
       '/api/search',
+      '/api/giphy',
     ],
   });
 });

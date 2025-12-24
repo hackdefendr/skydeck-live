@@ -45,6 +45,18 @@ class FeedService {
     return blueskyService.getSavedFeeds(agent);
   }
 
+  // Get saved feeds with full info
+  async getSavedFeedsWithInfo(user) {
+    const agent = await authService.getBlueskyAgent(user);
+    return blueskyService.getSavedFeedsWithInfo(agent);
+  }
+
+  // Get feed generators info
+  async getFeedGenerators(user, feedUris) {
+    const agent = await authService.getBlueskyAgent(user);
+    return blueskyService.getFeedGenerators(agent, feedUris);
+  }
+
   // Get post thread
   async getPostThread(user, uri, { depth = 10, parentHeight = 80 } = {}) {
     const agent = await authService.getBlueskyAgent(user);

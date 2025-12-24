@@ -21,6 +21,7 @@ const defaultTheme = {
   columnGap: 8,
   compactMode: false,
   customCss: '',
+  logoVariant: 'auto', // 'auto' = detect season/holiday, or specific variant name
 };
 
 export const useThemeStore = create(
@@ -71,7 +72,10 @@ export const useThemeStore = create(
           columnGap: theme.columnGap,
           compactMode: theme.compactMode,
           customCss: theme.customCss || '',
+          logoVariant: theme.logoVariant || 'auto',
         };
+        // Sync logoVariant to localStorage for Logo component
+        localStorage.setItem('logoVariant', theme.logoVariant || 'auto');
         try {
           const response = await api.patch('/themes', themeData);
           // Update store with server response to ensure sync
@@ -168,6 +172,9 @@ export const useThemeStore = create(
         } else {
           document.body.classList.remove('compact');
         }
+
+        // Sync logo variant to localStorage
+        localStorage.setItem('logoVariant', theme.logoVariant || 'auto');
       },
     }),
     {

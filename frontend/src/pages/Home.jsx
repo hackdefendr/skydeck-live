@@ -21,11 +21,11 @@ function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-bg-primary">
+    <div className="h-screen flex flex-col bg-bg-primary overflow-hidden">
       <Header />
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex min-h-0">
         <Sidebar />
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 min-h-0 min-w-0 overflow-hidden">
           <Deck columns={columns} />
         </main>
       </div>

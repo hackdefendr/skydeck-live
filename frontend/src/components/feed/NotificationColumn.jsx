@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { Heart, Repeat2, UserPlus, MessageCircle, Quote, AtSign } from 'lucide-react';
 import { useNotificationStore } from '../../stores/notificationStore';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { shortTimeAgo } from '../../utils/helpers';
 import Avatar from '../common/Avatar';
 import Loading from '../common/Loading';
@@ -46,6 +47,9 @@ function NotificationColumn({ column }) {
 
   const containerRef = useRef(null);
 
+  // Auto-refresh based on column settings (default: 60 seconds)
+  useAutoRefresh(fetchNotifications, column.refreshInterval ?? 60, true);
+
   useEffect(() => {
     if (notifications.length === 0) {
       fetchNotifications();
@@ -85,7 +89,7 @@ function NotificationColumn({ column }) {
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-y-auto scrollbar-hide"
+      className="column-content"
     >
       {/* Loading state */}
       {isLoading && notifications.length === 0 && (

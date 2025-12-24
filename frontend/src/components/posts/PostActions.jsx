@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { MessageCircle, Repeat2, Heart, Share, Bookmark } from 'lucide-react';
+import { MessageCircle, Repeat2, Heart, Share, Quote } from 'lucide-react';
 import { formatNumber, cn } from '../../utils/helpers';
 import postsService from '../../services/posts';
 import Button from '../common/Button';
+import Dropdown from '../common/Dropdown';
 import { showSuccessToast, showErrorToast } from '../common/Toast';
 
-function PostActions({ post, className }) {
+function PostActions({ post, className, onReply, onQuote }) {
   const [isLiked, setIsLiked] = useState(!!post.viewer?.like);
   const [isReposted, setIsReposted] = useState(!!post.viewer?.repost);
   const [likeUri, setLikeUri] = useState(post.viewer?.like);
@@ -64,6 +65,14 @@ function PostActions({ post, className }) {
     }
   };
 
+  const handleReply = () => {
+    if (onReply) onReply(post);
+  };
+
+  const handleQuote = () => {
+    if (onQuote) onQuote(post);
+  };
+
   return (
     <div className={cn('flex items-center gap-1', className)}>
       {/* Reply */}
@@ -71,6 +80,7 @@ function PostActions({ post, className }) {
         variant="ghost"
         size="icon"
         className="group w-9 h-9"
+        onClick={handleReply}
         aria-label={`Reply (${post.replyCount || 0})`}
       >
         <MessageCircle className="w-4 h-4 text-text-muted group-hover:text-primary" />
@@ -81,31 +91,42 @@ function PostActions({ post, className }) {
         )}
       </Button>
 
-      {/* Repost */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className={cn('group w-9 h-9', isReposted && 'text-green-500')}
-        onClick={handleRepost}
-        aria-label={`Repost (${repostCount})`}
-      >
-        <Repeat2
-          className={cn(
-            'w-4 h-4',
-            isReposted ? 'text-green-500' : 'text-text-muted group-hover:text-green-500'
-          )}
-        />
-        {repostCount > 0 && (
-          <span
-            className={cn(
-              'ml-1 text-xs',
-              isReposted ? 'text-green-500' : 'text-text-muted group-hover:text-green-500'
-            )}
+      {/* Repost / Quote dropdown */}
+      <Dropdown
+        align="left"
+        trigger={
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn('group w-9 h-9', isReposted && 'text-green-500')}
+            aria-label={`Repost (${repostCount})`}
           >
-            {formatNumber(repostCount)}
-          </span>
-        )}
-      </Button>
+            <Repeat2
+              className={cn(
+                'w-4 h-4',
+                isReposted ? 'text-green-500' : 'text-text-muted group-hover:text-green-500'
+              )}
+            />
+            {repostCount > 0 && (
+              <span
+                className={cn(
+                  'ml-1 text-xs',
+                  isReposted ? 'text-green-500' : 'text-text-muted group-hover:text-green-500'
+                )}
+              >
+                {formatNumber(repostCount)}
+              </span>
+            )}
+          </Button>
+        }
+      >
+        <Dropdown.Item onClick={handleRepost} icon={Repeat2}>
+          {isReposted ? 'Undo repost' : 'Repost'}
+        </Dropdown.Item>
+        <Dropdown.Item onClick={handleQuote} icon={Quote}>
+          Quote post
+        </Dropdown.Item>
+      </Dropdown>
 
       {/* Like */}
       <Button

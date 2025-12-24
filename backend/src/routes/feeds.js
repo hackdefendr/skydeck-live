@@ -55,10 +55,16 @@ router.get('/suggested', authenticate, asyncHandler(async (req, res) => {
   res.json(result);
 }));
 
-// Get saved feeds
+// Get saved feeds (just URIs)
 router.get('/saved', authenticate, asyncHandler(async (req, res) => {
   const feeds = await feedService.getSavedFeeds(req.user);
   res.json({ feeds });
+}));
+
+// Get saved feeds with full info (display name, avatar, etc.)
+router.get('/saved/info', authenticate, asyncHandler(async (req, res) => {
+  const result = await feedService.getSavedFeedsWithInfo(req.user);
+  res.json(result);
 }));
 
 // Get mentions

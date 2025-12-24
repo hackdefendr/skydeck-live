@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MessageCircle, Plus } from 'lucide-react';
 import api from '../../services/api';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import Avatar from '../common/Avatar';
 import Loading from '../common/Loading';
 import Button from '../common/Button';
@@ -11,11 +12,7 @@ function MessagesColumn({ column }) {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedConvo, setSelectedConvo] = useState(null);
 
-  useEffect(() => {
-    fetchConversations();
-  }, []);
-
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await api.get('/messages/conversations');
@@ -24,9 +21,17 @@ function MessagesColumn({ column }) {
       console.error('Fetch conversations error:', error);
     }
     setIsLoading(false);
-  };
+  }, []);
 
-  if (isLoading) {
+  // Initial fetch
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // Auto-refresh based on column settings (default: 60 seconds)
+  useAutoRefresh(fetchConversations, column.refreshInterval ?? 60, true);
+
+  if (isLoading && conversations.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <Loading size="lg" />
@@ -54,7 +59,7 @@ function MessagesColumn({ column }) {
       </div>
 
       {/* Conversations list */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide">
+      <div className="column-content">
         {conversations.map((convo) => {
           const otherMembers = convo.members?.filter(
             (m) => m.did !== convo.myDid

@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
 import api from '../../services/api';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import Post from '../posts/Post';
 import Avatar from '../common/Avatar';
 import Loading from '../common/Loading';
@@ -11,6 +12,12 @@ function SearchColumn({ column }) {
   const [results, setResults] = useState({ posts: [], users: [] });
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
+  const queryRef = useRef(query);
+
+  // Keep queryRef in sync
+  useEffect(() => {
+    queryRef.current = query;
+  }, [query]);
 
   const performSearch = useCallback(
     debounce(async (searchQuery) => {
@@ -35,6 +42,16 @@ function SearchColumn({ column }) {
     }, 300),
     []
   );
+
+  // Refresh function for auto-refresh (uses current query)
+  const refreshSearch = useCallback(() => {
+    if (queryRef.current.trim()) {
+      performSearch(queryRef.current);
+    }
+  }, [performSearch]);
+
+  // Auto-refresh based on column settings (default: 60 seconds) - only refreshes if there's a query
+  useAutoRefresh(refreshSearch, column.refreshInterval ?? 60, !!query.trim());
 
   const handleQueryChange = (e) => {
     const newQuery = e.target.value;
@@ -83,7 +100,7 @@ function SearchColumn({ column }) {
       </div>
 
       {/* Results */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide">
+      <div className="column-content">
         {isLoading && (
           <div className="flex items-center justify-center py-8">
             <Loading size="lg" />

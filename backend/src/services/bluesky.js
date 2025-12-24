@@ -216,6 +216,56 @@ class BlueskyService {
     }
   }
 
+  // Get feed generators info (with rate limiting and caching)
+  async getFeedGenerators(agent, feeds) {
+    if (!feeds || feeds.length === 0) return { feeds: [] };
+
+    try {
+      const response = await withRateLimit.read(
+        () => agent.app.bsky.feed.getFeedGenerators({ feeds })
+      );
+      return {
+        feeds: response.data.feeds.map(f => ({
+          uri: f.uri,
+          cid: f.cid,
+          did: f.did,
+          creator: {
+            did: f.creator.did,
+            handle: f.creator.handle,
+            displayName: f.creator.displayName,
+            avatar: f.creator.avatar,
+          },
+          displayName: f.displayName,
+          description: f.description,
+          avatar: f.avatar,
+          likeCount: f.likeCount,
+          indexedAt: f.indexedAt,
+        })),
+      };
+    } catch (error) {
+      console.error('Get feed generators error:', error);
+      throw error;
+    }
+  }
+
+  // Get saved feeds with full info
+  async getSavedFeedsWithInfo(agent) {
+    try {
+      // Get saved feed URIs from preferences
+      const savedUris = await this.getSavedFeeds(agent);
+      if (!savedUris || savedUris.length === 0) {
+        return { feeds: [] };
+      }
+
+      // Get feed generator info for each
+      const feedInfo = await this.getFeedGenerators(agent, savedUris);
+      return feedInfo;
+    } catch (error) {
+      console.error('Get saved feeds with info error:', error);
+      throw error;
+    }
+  }
+
   // Get post thread (with rate limiting)
   async getPostThread(agent, uri, { depth = 10, parentHeight = 80 } = {}) {
     try {
@@ -591,6 +641,19 @@ class BlueskyService {
       const response = await withRateLimit.read(
         () => agent.app.bsky.actor.getPreferences()
       );
+
+      // Check for new V2 format first
+      const savedFeedsPrefV2 = response.data.preferences.find(
+        (p) => p.$type === 'app.bsky.actor.defs#savedFeedsPrefV2'
+      );
+      if (savedFeedsPrefV2?.items) {
+        // Extract feed URIs from V2 format (filter to only 'feed' type, not 'timeline' or 'list')
+        return savedFeedsPrefV2.items
+          .filter(item => item.type === 'feed')
+          .map(item => item.value);
+      }
+
+      // Fall back to old format
       const savedFeedsPref = response.data.preferences.find(
         (p) => p.$type === 'app.bsky.actor.defs#savedFeedsPref'
       );

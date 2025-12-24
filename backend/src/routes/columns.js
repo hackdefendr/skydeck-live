@@ -19,7 +19,7 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
 
 // Create column
 router.post('/', authenticate, validate(schemas.createColumn), asyncHandler(async (req, res) => {
-  const { type, title, position, width, feedUri, listUri, searchQuery, profileDid } = req.body;
+  const { type, title, position, width, refreshInterval, feedUri, listUri, searchQuery, profileDid } = req.body;
 
   // Get max position if not provided
   let columnPosition = position;
@@ -39,6 +39,7 @@ router.post('/', authenticate, validate(schemas.createColumn), asyncHandler(asyn
       title,
       position: columnPosition,
       width: width || 350,
+      refreshInterval: refreshInterval ?? 60,
       feedUri,
       listUri,
       searchQuery,
@@ -52,7 +53,7 @@ router.post('/', authenticate, validate(schemas.createColumn), asyncHandler(asyn
 // Update column
 router.patch('/:id', authenticate, validate(schemas.updateColumn), asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { title, position, width, config, isVisible } = req.body;
+  const { title, position, width, config, isVisible, refreshInterval } = req.body;
 
   const column = await prisma.column.updateMany({
     where: {
@@ -65,6 +66,7 @@ router.patch('/:id', authenticate, validate(schemas.updateColumn), asyncHandler(
       ...(width !== undefined && { width }),
       ...(config !== undefined && { config }),
       ...(isVisible !== undefined && { isVisible }),
+      ...(refreshInterval !== undefined && { refreshInterval }),
     },
   });
 

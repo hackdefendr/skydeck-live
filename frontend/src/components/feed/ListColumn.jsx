@@ -1,9 +1,33 @@
+import { useEffect, useCallback, useRef } from 'react';
 import { useFeed } from '../../hooks/useFeed';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import Post from '../posts/Post';
 import Loading from '../common/Loading';
 
 function ListColumn({ column }) {
-  const { feed, isLoading, error, hasMore, loadMore } = useFeed(column.id);
+  const { feed, isLoading, error, hasMore, refresh, loadMore } = useFeed(column.id);
+  const containerRef = useRef(null);
+
+  // Auto-refresh based on column settings (default: 60 seconds)
+  useAutoRefresh(refresh, column.refreshInterval ?? 60, true);
+
+  // Infinite scroll
+  const handleScroll = useCallback(() => {
+    if (!containerRef.current || isLoading || !hasMore) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+    if (scrollHeight - scrollTop <= clientHeight * 1.5) {
+      loadMore();
+    }
+  }, [isLoading, hasMore, loadMore]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
 
   if (isLoading && feed.length === 0) {
     return (
@@ -14,7 +38,7 @@ function ListColumn({ column }) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto scrollbar-hide">
+    <div ref={containerRef} className="column-content">
       {/* List info header */}
       <div className="px-4 py-3 border-b border-border">
         <h3 className="font-semibold text-text-primary">{column.title}</h3>

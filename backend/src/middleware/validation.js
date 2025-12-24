@@ -54,6 +54,7 @@ export const schemas = {
       width: z.number().int().min(250).max(600).optional(),
       config: z.record(z.any()).optional(),
       isVisible: z.boolean().optional(),
+      refreshInterval: z.number().int().min(0).max(600).optional(),
     }),
   }),
 
@@ -66,6 +67,7 @@ export const schemas = {
       title: z.string().min(1).max(50),
       position: z.number().int().optional(),
       width: z.number().int().min(250).max(600).optional(),
+      refreshInterval: z.number().int().min(0).max(600).optional(),
       feedUri: z.string().optional(),
       listUri: z.string().optional(),
       searchQuery: z.string().optional(),

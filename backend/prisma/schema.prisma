@@ -72,6 +72,9 @@ model Column {
 
   isVisible   Boolean     @default(true)
 
+  // Auto-refresh interval in seconds (0 = disabled)
+  refreshInterval Int     @default(60)
+
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 

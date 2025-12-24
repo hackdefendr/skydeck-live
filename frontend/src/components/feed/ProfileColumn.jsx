@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Calendar, Link as LinkIcon, MapPin, Users } from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { formatNumber, formatDate } from '../../utils/helpers';
 import Avatar from '../common/Avatar';
 import Button from '../common/Button';
@@ -17,13 +18,7 @@ function ProfileColumn({ column }) {
 
   const profileDid = column.profileDid || user?.did;
 
-  useEffect(() => {
-    if (profileDid) {
-      fetchProfile();
-    }
-  }, [profileDid]);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     setIsLoading(true);
     try {
       const [profileRes, feedRes] = await Promise.all([
@@ -36,9 +31,17 @@ function ProfileColumn({ column }) {
       console.error('Fetch profile error:', error);
     }
     setIsLoading(false);
-  };
+  }, [profileDid]);
 
-  if (isLoading) {
+  // Initial fetch
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  // Auto-refresh based on column settings (default: 60 seconds)
+  useAutoRefresh(fetchProfile, column.refreshInterval ?? 60, true);
+
+  if (isLoading && !profile) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <Loading size="lg" />
@@ -57,7 +60,7 @@ function ProfileColumn({ column }) {
   const isOwnProfile = user?.did === profile.did;
 
   return (
-    <div className="flex-1 overflow-y-auto scrollbar-hide">
+    <div className="column-content">
       {/* Banner */}
       {profile.banner ? (
         <div className="h-32 bg-bg-tertiary">

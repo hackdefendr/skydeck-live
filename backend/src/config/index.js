@@ -29,6 +29,10 @@ const config = {
     apikey: process.env.ATPROTO_API_KEY || '',
   },
 
+  giphy: {
+    apiKey: process.env.GIPHY_API_KEY || '',
+  },
+
   cors: {
     origin: process.env.FRONTEND_URL || 'http://localhost:5173',
     credentials: true,

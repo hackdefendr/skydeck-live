@@ -33,6 +33,8 @@
 
 html {
   font-size: var(--font-size);
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -42,6 +44,13 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
 }
 
 /* Scrollbar styling */
@@ -179,6 +188,36 @@ textarea::placeholder {
   background-color: var(--color-bg-secondary);
   border-radius: 12px;
   overflow: hidden;
+  /* Ensure independent scrolling - prevent scroll propagation */
+  overscroll-behavior: contain;
+  isolation: isolate;
+}
+
+/* Column content area - independent vertical scroll */
+.column-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent scroll chaining to parent */
+.column-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.column-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.column-content::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.column-content::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
 }
 
 /* Post content rich text */

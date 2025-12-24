@@ -7,13 +7,22 @@ import Dropdown from '../common/Dropdown';
 import MediaPreview from './MediaPreview';
 import PostActions from './PostActions';
 
-function PostCard({ post, showReply = true, compact = false }) {
+function PostCard({ post, showReply = true, compact = false, onClick, onReply, onQuote }) {
   const { author, record, embed, replyCount, repostCount, likeCount, viewer, indexedAt } = post;
 
   if (!author || !record) return null;
 
+  const handleClick = (e) => {
+    // Don't trigger if clicking on interactive elements
+    if (e.target.closest('button, a, [role="button"]')) return;
+    if (onClick) onClick(post);
+  };
+
   return (
-    <article className="px-4 py-3 border-b border-border hover:bg-bg-tertiary/50 transition-colors">
+    <article
+      className="px-4 py-3 border-b border-border hover:bg-bg-tertiary/50 transition-colors cursor-pointer"
+      onClick={handleClick}
+    >
       <div className="flex gap-3">
         {/* Avatar */}
         <Avatar
@@ -25,34 +34,35 @@ function PostCard({ post, showReply = true, compact = false }) {
         {/* Content */}
         <div className="flex-1 min-w-0">
           {/* Header */}
-          <div className="flex items-center gap-1 text-sm">
-            <span className="font-semibold text-text-primary truncate">
-              {author.displayName || author.handle}
-            </span>
-            <span className="text-text-muted truncate">
-              @{author.handle}
-            </span>
-            <span className="text-text-muted">·</span>
-            <time className="text-text-muted flex-shrink-0">
-              {shortTimeAgo(indexedAt || record.createdAt)}
-            </time>
+          <div className="flex items-start gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-text-primary truncate">
+                  {author.displayName || author.handle}
+                </span>
+                <time className="text-text-muted text-sm flex-shrink-0">
+                  {shortTimeAgo(indexedAt || record.createdAt)}
+                </time>
+              </div>
+              <div className="text-text-muted text-sm truncate">
+                @{author.handle}
+              </div>
+            </div>
 
             {/* More menu */}
-            <div className="ml-auto">
-              <Dropdown
-                align="right"
-                trigger={
-                  <Button variant="ghost" size="icon" className="w-8 h-8 -mr-2">
-                    <MoreHorizontal className="w-4 h-4" />
-                  </Button>
-                }
-              >
-                <Dropdown.Item onClick={() => {}}>Copy link</Dropdown.Item>
-                <Dropdown.Item onClick={() => {}}>Embed post</Dropdown.Item>
-                <Dropdown.Divider />
-                <Dropdown.Item onClick={() => {}} danger>Report</Dropdown.Item>
-              </Dropdown>
-            </div>
+            <Dropdown
+              align="right"
+              trigger={
+                <Button variant="ghost" size="icon" className="w-8 h-8 -mt-1 -mr-2">
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              }
+            >
+              <Dropdown.Item onClick={() => {}}>Copy link</Dropdown.Item>
+              <Dropdown.Item onClick={() => {}}>Embed post</Dropdown.Item>
+              <Dropdown.Divider />
+              <Dropdown.Item onClick={() => {}} danger>Report</Dropdown.Item>
+            </Dropdown>
           </div>
 
           {/* Reply indicator */}
@@ -79,6 +89,8 @@ function PostCard({ post, showReply = true, compact = false }) {
           {/* Actions */}
           <PostActions
             post={post}
+            onReply={onReply}
+            onQuote={onQuote}
             className="mt-2 -ml-2"
           />
         </div>

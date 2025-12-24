@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import { useThemeStore } from './stores/themeStore';
+import { useFavicon } from './hooks/useFavicon';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Settings from './pages/Settings';
@@ -10,6 +11,7 @@ import Loading from './components/common/Loading';
 function App() {
   const { user, isLoading, isAuthenticated, checkAuth } = useAuthStore();
   const { theme, applyTheme, fetchTheme } = useThemeStore();
+  const { updateFavicon } = useFavicon();
   const hasCheckedAuth = useRef(false);
   const hasFetchedTheme = useRef(false);
 
@@ -37,6 +39,11 @@ function App() {
   useEffect(() => {
     applyTheme(theme);
   }, [theme, applyTheme]);
+
+  // Update favicon when logo variant changes
+  useEffect(() => {
+    updateFavicon();
+  }, [theme.logoVariant, updateFavicon]);
 
   if (isLoading) {
     return (
