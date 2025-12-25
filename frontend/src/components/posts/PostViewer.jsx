@@ -5,6 +5,7 @@ import postsService from '../../services/posts';
 import Avatar from '../common/Avatar';
 import Button from '../common/Button';
 import Loading from '../common/Loading';
+import Portal from '../common/Portal';
 import MediaPreview from './MediaPreview';
 import PostActions from './PostActions';
 
@@ -48,7 +49,7 @@ function PostViewer({ post, isOpen, onClose, onReply, onQuote }) {
   const { author, record, embed, indexedAt } = mainPost || {};
 
   return (
-    <>
+    <Portal>
       {/* Backdrop */}
       <div
         className="fixed inset-0 z-50 bg-black/50"
@@ -173,7 +174,7 @@ function PostViewer({ post, isOpen, onClose, onReply, onQuote }) {
           ) : null}
         </div>
       </div>
-    </>
+    </Portal>
   );
 }
 

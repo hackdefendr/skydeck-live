@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { MessageCircle, Repeat2, Heart, Share, Quote } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { MessageCircle, Repeat2, Heart, Share, Quote, Bookmark } from 'lucide-react';
 import { formatNumber, cn } from '../../utils/helpers';
 import postsService from '../../services/posts';
+import { useBookmarkStore } from '../../stores/bookmarkStore';
 import Button from '../common/Button';
 import Dropdown from '../common/Dropdown';
 import { showSuccessToast, showErrorToast } from '../common/Toast';
@@ -13,6 +14,15 @@ function PostActions({ post, className, onReply, onQuote }) {
   const [repostUri, setRepostUri] = useState(post.viewer?.repost);
   const [likeCount, setLikeCount] = useState(post.likeCount || 0);
   const [repostCount, setRepostCount] = useState(post.repostCount || 0);
+
+  // Bookmark state
+  const { isBookmarked, toggleBookmark } = useBookmarkStore();
+  const [bookmarked, setBookmarked] = useState(false);
+
+  // Check if post is bookmarked
+  useEffect(() => {
+    setBookmarked(isBookmarked(post.uri));
+  }, [post.uri, isBookmarked]);
 
   const handleLike = async () => {
     try {
@@ -71,6 +81,19 @@ function PostActions({ post, className, onReply, onQuote }) {
 
   const handleQuote = () => {
     if (onQuote) onQuote(post);
+  };
+
+  const handleBookmark = async () => {
+    const wasBookmarked = bookmarked;
+    setBookmarked(!wasBookmarked);
+
+    const result = await toggleBookmark(post);
+    if (!result.success) {
+      setBookmarked(wasBookmarked);
+      showErrorToast(wasBookmarked ? 'Failed to remove bookmark' : 'Failed to add bookmark');
+    } else {
+      showSuccessToast(wasBookmarked ? 'Bookmark removed' : 'Post bookmarked');
+    }
   };
 
   return (
@@ -152,6 +175,22 @@ function PostActions({ post, className, onReply, onQuote }) {
             {formatNumber(likeCount)}
           </span>
         )}
+      </Button>
+
+      {/* Bookmark */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn('group w-9 h-9', bookmarked && 'text-primary')}
+        onClick={handleBookmark}
+        aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark'}
+      >
+        <Bookmark
+          className={cn(
+            'w-4 h-4',
+            bookmarked ? 'text-primary fill-primary' : 'text-text-muted group-hover:text-primary'
+          )}
+        />
       </Button>
 
       {/* Share */}

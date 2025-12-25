@@ -6,17 +6,12 @@ import Post from '../posts/Post';
 import PostViewer from '../posts/PostViewer';
 import SlideOutComposer from '../posts/SlideOutComposer';
 import Loading from '../common/Loading';
+import { Hash } from 'lucide-react';
 
-function FeedColumn({ column }) {
+function HashtagColumn({ column }) {
   const { feed, isLoading, error, hasMore, refresh, loadMore } = useFeed(column.id);
   const containerRef = useRef(null);
   const { registerColumnRef, unregisterColumnRef } = useKeyboardStore();
-
-  // Register scroll container ref for keyboard navigation
-  useEffect(() => {
-    registerColumnRef(column.id, containerRef);
-    return () => unregisterColumnRef(column.id);
-  }, [column.id, registerColumnRef, unregisterColumnRef]);
 
   // Post viewer state
   const [selectedPost, setSelectedPost] = useState(null);
@@ -26,6 +21,12 @@ function FeedColumn({ column }) {
   const [showComposer, setShowComposer] = useState(false);
   const [replyTo, setReplyTo] = useState(null);
   const [quotePost, setQuotePost] = useState(null);
+
+  // Register scroll container ref for keyboard navigation
+  useEffect(() => {
+    registerColumnRef(column.id, containerRef);
+    return () => unregisterColumnRef(column.id);
+  }, [column.id, registerColumnRef, unregisterColumnRef]);
 
   // Auto-refresh based on column settings (default: 60 seconds)
   useAutoRefresh(refresh, column.refreshInterval ?? 60, true);
@@ -77,12 +78,34 @@ function FeedColumn({ column }) {
     setQuotePost(null);
   };
 
+  // Format hashtag for display
+  const displayHashtag = column.hashtag?.startsWith('#')
+    ? column.hashtag
+    : `#${column.hashtag || ''}`;
+
   return (
     <>
       <div
         ref={containerRef}
         className="column-content"
       >
+        {/* Hashtag header */}
+        <div className="sticky top-0 z-10 bg-bg-secondary/95 backdrop-blur-sm border-b border-border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Hash className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-bold text-text-primary text-lg">
+                {displayHashtag}
+              </h3>
+              <p className="text-xs text-text-muted">
+                {feed.length} {feed.length === 1 ? 'post' : 'posts'}
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Loading state */}
         {isLoading && feed.length === 0 && (
           <div className="flex items-center justify-center py-8">
@@ -93,20 +116,24 @@ function FeedColumn({ column }) {
         {/* Error state */}
         {error && feed.length === 0 && (
           <div className="flex items-center justify-center py-8 text-text-muted">
-            <p>Failed to load feed</p>
+            <p>Failed to load posts</p>
           </div>
         )}
 
-        {/* Feed items */}
-        {feed.map((item, index) => (
-          <Post
-            key={item.post?.uri || item.uri || index}
-            item={item}
-            onClick={handlePostClick}
-            onReply={handleReply}
-            onQuote={handleQuote}
-          />
-        ))}
+        {/* Feed items - hashtag search returns posts directly */}
+        {feed.map((item, index) => {
+          // Handle both direct posts and wrapped posts
+          const post = item.post || item;
+          return (
+            <Post
+              key={post.uri || index}
+              item={{ post }}
+              onClick={handlePostClick}
+              onReply={handleReply}
+              onQuote={handleQuote}
+            />
+          );
+        })}
 
         {/* Load more indicator */}
         {isLoading && feed.length > 0 && (
@@ -124,8 +151,10 @@ function FeedColumn({ column }) {
 
         {/* Empty state */}
         {!isLoading && feed.length === 0 && !error && (
-          <div className="flex items-center justify-center py-8 text-text-muted">
-            <p>No posts yet</p>
+          <div className="flex flex-col items-center justify-center py-12 text-text-muted">
+            <Hash className="w-12 h-12 mb-3 opacity-50" />
+            <p className="font-medium">No posts found</p>
+            <p className="text-sm mt-1">Be the first to post with {displayHashtag}</p>
           </div>
         )}
       </div>
@@ -150,4 +179,4 @@ function FeedColumn({ column }) {
   );
 }
 
-export default FeedColumn;
+export default HashtagColumn;

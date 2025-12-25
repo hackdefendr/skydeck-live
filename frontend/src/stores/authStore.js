@@ -14,18 +14,42 @@ export const useAuthStore = create(
       isAuthenticated: false,
       error: null,
 
-      login: async (identifier, password) => {
+      login: async (identifier, password, options = {}) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await api.post('/auth/login', { identifier, password });
-          const { user, token } = response.data;
+          const response = await api.post('/auth/login', {
+            identifier,
+            password,
+            service: options.service,
+            authFactorToken: options.authFactorToken,
+            twoFactorCode: options.twoFactorCode,
+          });
+          const { user, token, requires2FA, authFactorToken } = response.data;
+
+          // Check if 2FA is required
+          if (requires2FA) {
+            set({ isLoading: false });
+            return { success: false, requires2FA: true, authFactorToken };
+          }
 
           api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
           set({ user, token, isLoading: false, isAuthenticated: true });
 
           return { success: true };
         } catch (error) {
-          const message = error.response?.data?.error || 'Login failed';
+          const data = error.response?.data || {};
+          const message = data.error || 'Login failed';
+
+          // Check if 2FA is required from error response
+          if (data.requires2FA || data.authFactorToken) {
+            set({ isLoading: false });
+            return {
+              success: false,
+              requires2FA: true,
+              authFactorToken: data.authFactorToken,
+            };
+          }
+
           set({ error: message, isLoading: false, isAuthenticated: false });
           return { success: false, error: message };
         }

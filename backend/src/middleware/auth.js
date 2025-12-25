@@ -32,6 +32,7 @@ export const authenticate = async (req, res, next) => {
         avatar: true,
         accessJwt: true,
         refreshJwt: true,
+        pdsUrl: true, // Include PDS URL for API calls
       },
     });
 

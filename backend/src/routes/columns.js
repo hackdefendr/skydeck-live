@@ -19,7 +19,7 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
 
 // Create column
 router.post('/', authenticate, validate(schemas.createColumn), asyncHandler(async (req, res) => {
-  const { type, title, position, width, refreshInterval, feedUri, listUri, searchQuery, profileDid } = req.body;
+  const { type, title, position, width, refreshInterval, feedUri, listUri, searchQuery, profileDid, hashtag } = req.body;
 
   // Get max position if not provided
   let columnPosition = position;
@@ -44,6 +44,7 @@ router.post('/', authenticate, validate(schemas.createColumn), asyncHandler(asyn
       listUri,
       searchQuery,
       profileDid,
+      hashtag,
     },
   });
 

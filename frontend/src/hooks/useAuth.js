@@ -6,8 +6,8 @@ export function useAuth() {
 
   const isAuthenticated = !!user;
 
-  const handleLogin = useCallback(async (identifier, password) => {
-    return login(identifier, password);
+  const handleLogin = useCallback(async (identifier, password, options = {}) => {
+    return login(identifier, password, options);
   }, [login]);
 
   const handleLogout = useCallback(async () => {

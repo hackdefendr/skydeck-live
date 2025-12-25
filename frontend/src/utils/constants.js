@@ -9,6 +9,7 @@ export const COLUMN_TYPES = {
   PROFILE: 'PROFILE',
   LIKES: 'LIKES',
   BOOKMARKS: 'BOOKMARKS',
+  HASHTAG: 'HASHTAG',
 };
 
 export const COLUMN_ICONS = {
@@ -22,6 +23,7 @@ export const COLUMN_ICONS = {
   PROFILE: 'User',
   LIKES: 'Heart',
   BOOKMARKS: 'Bookmark',
+  HASHTAG: 'Hash',
 };
 
 export const COLUMN_TITLES = {
@@ -35,6 +37,7 @@ export const COLUMN_TITLES = {
   PROFILE: 'Profile',
   LIKES: 'Likes',
   BOOKMARKS: 'Bookmarks',
+  HASHTAG: 'Hashtag',
 };
 
 export const NOTIFICATION_TYPES = {

@@ -5,13 +5,15 @@ A feature-complete Bluesky social media web frontend with a multi-column "deck" 
 ## Features
 
 ### Core Features
-- **Multi-Column Layout**: Drag-and-drop customizable columns for Home, Notifications, Messages, Search, Lists, Custom Feeds, and Profiles
+- **Multi-Column Layout**: Drag-and-drop customizable columns for Home, Notifications, Messages, Search, Lists, Custom Feeds, Profiles, Likes, Bookmarks, and Hashtags
 - **Independent Column Scrolling**: Each column scrolls independently from the main window
 - **Full Bluesky Integration**: Complete ATProto API support for posts, feeds, DMs, notifications, and moderation
 - **Theme Customization**: Full control over colors, typography, layout, and custom CSS
 - **Real-time Updates**: WebSocket-powered live feeds and notifications
 - **Responsive Design**: Works on desktop and mobile
 - **Accessible**: WCAG 2.2 compliant with keyboard navigation
+- **Custom PDS Support**: Connect to any AT Protocol PDS, not just bsky.social
+- **Two-Factor Authentication**: Full 2FA support for login
 
 ### Post Composer
 - **Slide-Out Composer**: Full-featured post composer that slides out from the left sidebar
@@ -20,6 +22,10 @@ A feature-complete Bluesky social media web frontend with a multi-column "deck" 
 - **GIF Search**: Integrated GIPHY search for adding animated GIFs to posts
 - **Quote Posts**: Quote other posts with optional text and media attachments
 - **Reply Support**: Reply to posts directly from the feed or post viewer
+- **Hashtag Autocomplete**: Type `#` to see popular hashtag suggestions as you type
+- **Paste Support**: Paste images and videos directly into the composer
+- **Drafts**: Save posts as drafts and edit them later
+- **Scheduled Posts**: Schedule posts to be automatically published at a future date/time
 
 ### Post Display
 - **Post Viewer Modal**: Click any post to open a detailed view with full thread context
@@ -34,8 +40,31 @@ A feature-complete Bluesky social media web frontend with a multi-column "deck" 
 - **External Links**: Rich link previews with thumbnails
 - **GIFs**: Animated GIF support via GIPHY integration
 
+### Bookmarks
+- **Local Bookmarks**: Save posts locally to your SkyDeck account
+- **Bookmarks Column**: View all your bookmarked posts in a dedicated column
+- **Quick Toggle**: Bookmark/unbookmark posts with a single click
+
+### Lists Management
+- **Create Lists**: Create curate lists and moderation lists directly in SkyDeck
+- **Manage Members**: Add and remove members from your lists
+- **User Search**: Search for users to add to lists
+- **Edit & Delete**: Update list names/descriptions or delete lists
+
+### Keyboard Shortcuts
+- **Navigation**: `j`/`k` for next/previous post, `h`/`l` for column navigation
+- **Actions**: `n` for new post, `r` for reply, `l` for like, `t` for repost
+- **Go-To**: `g` then `h` for home, `g` then `n` for notifications, etc.
+- **Help**: Press `?` to view all available shortcuts
+
+### Hashtag Columns
+- **Track Hashtags**: Add columns to follow specific hashtags
+- **Real-time Updates**: Hashtag columns update automatically like other feeds
+
 ### Moderation Tools
 - Block, mute, report, and word filtering
+- Content label controls (hide, warn, ignore)
+- Adult content toggle
 
 ## Tech Stack
 
@@ -137,7 +166,7 @@ skydeck/
 ## API Endpoints
 
 ### Authentication
-- `POST /api/auth/login` - Login with Bluesky credentials
+- `POST /api/auth/login` - Login with Bluesky credentials (supports 2FA and custom PDS)
 - `POST /api/auth/logout` - Logout current session
 - `GET /api/auth/me` - Get current user
 
@@ -163,7 +192,7 @@ skydeck/
 
 ### Columns
 - `GET /api/columns` - Get user's columns
-- `POST /api/columns` - Create column
+- `POST /api/columns` - Create column (supports hashtag columns)
 - `PATCH /api/columns/:id` - Update column
 - `DELETE /api/columns/:id` - Delete column
 - `POST /api/columns/reorder` - Reorder columns
@@ -173,6 +202,31 @@ skydeck/
 - `PATCH /api/themes` - Update theme
 - `POST /api/themes/reset` - Reset to default
 - `GET /api/themes/presets` - Get theme presets
+
+### Bookmarks
+- `GET /api/bookmarks` - Get user's bookmarks
+- `POST /api/bookmarks` - Add bookmark
+- `DELETE /api/bookmarks/:id` - Remove bookmark by ID
+- `DELETE /api/bookmarks/post/:uri` - Remove bookmark by post URI
+- `GET /api/bookmarks/check/:uri` - Check if post is bookmarked
+
+### Drafts & Scheduled Posts
+- `GET /api/drafts` - Get all drafts
+- `GET /api/drafts/scheduled` - Get scheduled posts
+- `POST /api/drafts` - Save draft or schedule post
+- `PATCH /api/drafts/:id` - Update draft
+- `DELETE /api/drafts/:id` - Delete draft
+- `POST /api/drafts/:id/post` - Post draft immediately
+- `GET /api/drafts/counts/all` - Get draft and scheduled counts
+
+### Lists
+- `GET /api/lists` - Get user's lists
+- `GET /api/lists/:uri` - Get list with members
+- `POST /api/lists` - Create list (curate or moderation)
+- `PATCH /api/lists/:rkey` - Update list
+- `DELETE /api/lists/:rkey` - Delete list
+- `POST /api/lists/:uri/members` - Add member to list
+- `DELETE /api/lists/:uri/members/:rkey` - Remove member from list
 
 ## Configuration
 

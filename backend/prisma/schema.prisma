@@ -18,6 +18,7 @@ model User {
   // Session management
   accessJwt       String?
   refreshJwt      String?
+  pdsUrl          String?   // The PDS URL used for authentication (e.g., https://bsky.social)
 
   // App-specific settings
   columns         Column[]
@@ -70,6 +71,9 @@ model Column {
   // For profile columns
   profileDid  String?
 
+  // For hashtag columns
+  hashtag     String?
+
   isVisible   Boolean     @default(true)
 
   // Auto-refresh interval in seconds (0 = disabled)
@@ -93,6 +97,7 @@ enum ColumnType {
   PROFILE
   LIKES
   BOOKMARKS
+  HASHTAG
 }
 
 model Theme {
@@ -135,6 +140,9 @@ model Theme {
   // Custom CSS
   customCss       String?
 
+  // Logo variant (auto, default, christmas, halloween, etc.)
+  logoVariant     String   @default("auto")
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
@@ -169,4 +177,32 @@ model MutedWord {
   expiresAt DateTime?
 
   @@index([userId])
+}
+
+model Bookmark {
+  id          String   @id @default(uuid())
+  userId      String
+  postUri     String   // AT Protocol URI of the bookmarked post
+  postCid     String   // CID for post verification
+  postData    Json?    // Cached post data for offline display
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, postUri])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Draft {
+  id          String    @id @default(uuid())
+  userId      String
+  text        String
+  replyTo     Json?     // Reply context if replying
+  quotePost   Json?     // Quote post data if quoting
+  mediaIds    String[]  // Array of uploaded media IDs
+  scheduledAt DateTime? // If set, this is a scheduled post
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([scheduledAt])
 }

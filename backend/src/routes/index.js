@@ -12,6 +12,9 @@ import preferencesRoutes from './preferences.js';
 import mediaRoutes from './media.js';
 import searchRoutes from './search.js';
 import giphyRoutes from './giphy.js';
+import bookmarksRoutes from './bookmarks.js';
+import draftsRoutes from './drafts.js';
+import listsRoutes from './lists.js';
 
 const router = Router();
 
@@ -29,6 +32,9 @@ router.use('/preferences', preferencesRoutes);
 router.use('/media', mediaRoutes);
 router.use('/search', searchRoutes);
 router.use('/giphy', giphyRoutes);
+router.use('/bookmarks', bookmarksRoutes);
+router.use('/drafts', draftsRoutes);
+router.use('/lists', listsRoutes);
 
 // API info
 router.get('/', (req, res) => {
@@ -49,6 +55,9 @@ router.get('/', (req, res) => {
       '/api/media',
       '/api/search',
       '/api/giphy',
+      '/api/bookmarks',
+      '/api/drafts',
+      '/api/lists',
     ],
   });
 });

@@ -34,7 +34,6 @@
 html {
   font-size: var(--font-size);
   height: 100%;
-  overflow: hidden;
 }
 
 body {
@@ -45,11 +44,15 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   height: 100%;
-  overflow: hidden;
 }
 
 #root {
   height: 100%;
+}
+
+/* Deck layout - lock scrolling to columns only */
+.deck-layout {
+  height: 100vh;
   overflow: hidden;
 }
 

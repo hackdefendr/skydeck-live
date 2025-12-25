@@ -9,11 +9,24 @@ const router = Router();
 
 // Login
 router.post('/login', authRateLimiter, validate(schemas.login), asyncHandler(async (req, res) => {
-  const { identifier, password } = req.body;
+  const { identifier, password, service, authFactorToken, twoFactorCode } = req.body;
   const userAgent = req.headers['user-agent'];
   const ipAddress = req.ip;
 
-  const result = await authService.login(identifier, password, userAgent, ipAddress);
+  const result = await authService.login(identifier, password, userAgent, ipAddress, {
+    service,
+    authFactorToken,
+    twoFactorCode,
+  });
+
+  // Check if 2FA is required
+  if (result.requires2FA) {
+    return res.status(401).json({
+      error: 'Two-factor authentication required',
+      requires2FA: true,
+      authFactorToken: result.authFactorToken,
+    });
+  }
 
   if (!result.success) {
     return res.status(401).json({ error: result.error });

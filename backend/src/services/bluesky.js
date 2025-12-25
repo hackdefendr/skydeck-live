@@ -8,10 +8,10 @@ class BlueskyService {
     this.agents = new Map();
   }
 
-  // Create a new BskyAgent
-  _createAgent() {
+  // Create a new BskyAgent with optional custom service URL
+  _createAgent(serviceUrl = null) {
     return new BskyAgent({
-      service: config.bluesky.service,
+      service: serviceUrl || config.bluesky.service,
     });
   }
 
@@ -33,8 +33,8 @@ class BlueskyService {
   }
 
   // Create authenticated agent from tokens
-  async createAuthenticatedAgent(accessJwt, refreshJwt, did, handle) {
-    const agent = this._createAgent();
+  async createAuthenticatedAgent(accessJwt, refreshJwt, did, handle, pdsUrl = null) {
+    const agent = this._createAgent(pdsUrl);
 
     await agent.resumeSession({
       accessJwt,
@@ -47,13 +47,22 @@ class BlueskyService {
     return agent;
   }
 
-  // Login with identifier and password (with rate limiting and exponential backoff)
-  async login(identifier, password) {
-    const agent = this._createAgent();
+  // Login with identifier and password (with rate limiting, custom PDS, and 2FA support)
+  async login(identifier, password, options = {}) {
+    const { service, authFactorToken, twoFactorCode } = options;
+    const agent = this._createAgent(service);
 
     try {
+      // Build login options
+      const loginOptions = { identifier, password };
+
+      // Add auth factor token if provided (for 2FA)
+      if (authFactorToken && twoFactorCode) {
+        loginOptions.authFactorToken = authFactorToken;
+      }
+
       const response = await withRateLimit.auth(
-        () => agent.login({ identifier, password }),
+        () => agent.login(loginOptions),
         {
           maxRetries: 3,
           baseDelay: 5000, // Start with 5 second delay for auth
@@ -74,12 +83,30 @@ class BlueskyService {
         displayName: response.data.displayName,
       };
     } catch (error) {
-      console.error('Bluesky login error:', error.message);
+      console.error('Bluesky login error:', error.message, error);
+
+      // Check if 2FA/email confirmation is required
+      // The AT Protocol returns AuthFactorTokenRequired when 2FA is needed
+      if (error.error === 'AuthFactorTokenRequired' ||
+          error.message?.includes('AuthFactorTokenRequired') ||
+          error.message?.includes('Email confirmation') ||
+          error.message?.includes('auth factor')) {
+        return {
+          success: false,
+          requires2FA: true,
+          authFactorToken: error.authFactorToken || '',
+          error: 'Two-factor authentication required. Check your email for a verification code.',
+        };
+      }
 
       // Provide more helpful error messages
       let errorMessage = error.message || 'Login failed';
       if (error.message?.includes('RateLimitExceeded') || error.status === 429) {
         errorMessage = 'Too many login attempts. Please wait a few minutes and try again.';
+      } else if (error.message?.includes('Invalid identifier or password')) {
+        errorMessage = 'Invalid username or password. Please check your credentials.';
+      } else if (error.message?.includes('Account not found')) {
+        errorMessage = 'Account not found. Please check your username or email.';
       }
 
       return {
@@ -90,14 +117,17 @@ class BlueskyService {
   }
 
   // Refresh session using the refreshJwt (with rate limiting)
-  async refreshSession(refreshJwt) {
+  async refreshSession(refreshJwt, pdsUrl = null) {
+    // Use the provided PDS URL or fall back to config default
+    const serviceUrl = pdsUrl || config.bluesky.service;
+
     try {
       // Use the AT Protocol refresh endpoint directly
       // The BskyAgent.refreshSession() method requires an authenticated agent,
       // so we need to call the endpoint directly with the refresh token
       const response = await withRateLimit.auth(
         async () => {
-          const res = await fetch(`${config.bluesky.service}/xrpc/com.atproto.server.refreshSession`, {
+          const res = await fetch(`${serviceUrl}/xrpc/com.atproto.server.refreshSession`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${refreshJwt}`,
@@ -495,6 +525,19 @@ class BlueskyService {
       };
     } catch (error) {
       console.error('Search posts error:', error);
+      throw error;
+    }
+  }
+
+  // Get posts by URIs (with rate limiting)
+  async getPosts(agent, uris) {
+    try {
+      const response = await withRateLimit.read(
+        () => agent.app.bsky.feed.getPosts({ uris })
+      );
+      return response.data.posts;
+    } catch (error) {
+      console.error('Get posts error:', error);
       throw error;
     }
   }

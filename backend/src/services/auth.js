@@ -1,12 +1,31 @@
 import { prisma } from '../index.js';
 import { generateSessionToken } from '../utils/jwt.js';
 import { blueskyService } from './bluesky.js';
+import config from '../config/index.js';
 
 class AuthService {
   // Login user with Bluesky credentials
-  async login(identifier, password, userAgent, ipAddress) {
-    // Authenticate with Bluesky
-    const result = await blueskyService.login(identifier, password);
+  async login(identifier, password, userAgent, ipAddress, options = {}) {
+    const { service, authFactorToken, twoFactorCode } = options;
+
+    // Determine the effective PDS URL (custom service or default)
+    const effectivePdsUrl = service || config.bluesky.service;
+
+    // Authenticate with Bluesky (with optional custom PDS and 2FA)
+    const result = await blueskyService.login(identifier, password, {
+      service,
+      authFactorToken,
+      twoFactorCode,
+    });
+
+    // Check if 2FA is required
+    if (result.requires2FA) {
+      return {
+        success: false,
+        requires2FA: true,
+        authFactorToken: result.authFactorToken,
+      };
+    }
 
     if (!result.success) {
       return { success: false, error: result.error };
@@ -26,6 +45,7 @@ class AuthService {
           displayName: result.displayName || result.handle,
           accessJwt: result.accessJwt,
           refreshJwt: result.refreshJwt,
+          pdsUrl: effectivePdsUrl, // Store the PDS URL used for authentication
           columns: {
             create: [
               { type: 'HOME', title: 'Home', position: 0 },
@@ -39,7 +59,7 @@ class AuthService {
         },
       });
     } else {
-      // Update existing user's tokens
+      // Update existing user's tokens and PDS URL
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -47,6 +67,7 @@ class AuthService {
           displayName: result.displayName || result.handle,
           accessJwt: result.accessJwt,
           refreshJwt: result.refreshJwt,
+          pdsUrl: effectivePdsUrl, // Update the PDS URL in case it changed
         },
       });
     }
@@ -57,7 +78,8 @@ class AuthService {
         result.accessJwt,
         result.refreshJwt,
         result.did,
-        result.handle
+        result.handle,
+        effectivePdsUrl // Pass the PDS URL
       );
       const profile = await blueskyService.getProfile(agent, result.did);
 
@@ -166,7 +188,9 @@ class AuthService {
       return { success: false, error: 'No refresh token available' };
     }
 
-    const result = await blueskyService.refreshSession(user.refreshJwt);
+    // Use the user's stored PDS URL or fall back to config default
+    const pdsUrl = user.pdsUrl || config.bluesky.service;
+    const result = await blueskyService.refreshSession(user.refreshJwt, pdsUrl);
 
     if (!result.success) {
       return result;
@@ -189,6 +213,9 @@ class AuthService {
 
   // Get authenticated Bluesky agent for user
   async getBlueskyAgent(user) {
+    // Use the user's stored PDS URL or fall back to config default
+    const pdsUrl = user.pdsUrl || config.bluesky.service;
+
     // Check if token needs refresh before creating agent
     const shouldRefresh = this.shouldRefreshToken(user.accessJwt);
 
@@ -205,12 +232,13 @@ class AuthService {
       }
     }
 
-    // Create agent with (possibly refreshed) tokens
+    // Create agent with (possibly refreshed) tokens and the user's PDS URL
     const agent = await blueskyService.createAuthenticatedAgent(
       user.accessJwt,
       user.refreshJwt,
       user.did,
-      user.handle
+      user.handle,
+      pdsUrl
     );
 
     return agent;

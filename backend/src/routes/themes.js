@@ -77,7 +77,7 @@ router.post('/import', authenticate, asyncHandler(async (req, res) => {
     'bgPrimary', 'bgSecondary', 'bgTertiary',
     'textPrimary', 'textSecondary', 'textMuted',
     'borderColor', 'fontFamily', 'fontSize',
-    'columnWidth', 'columnGap', 'compactMode', 'customCss',
+    'columnWidth', 'columnGap', 'compactMode', 'customCss', 'logoVariant',
   ];
 
   const filteredTheme = Object.keys(importedTheme)

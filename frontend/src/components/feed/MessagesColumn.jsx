@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { MessageCircle, Plus } from 'lucide-react';
 import api from '../../services/api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { useKeyboardStore } from '../../stores/keyboardStore';
 import Avatar from '../common/Avatar';
 import Loading from '../common/Loading';
 import Button from '../common/Button';
@@ -11,6 +12,14 @@ function MessagesColumn({ column }) {
   const [conversations, setConversations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedConvo, setSelectedConvo] = useState(null);
+  const containerRef = useRef(null);
+  const { registerColumnRef, unregisterColumnRef } = useKeyboardStore();
+
+  // Register scroll container ref for keyboard navigation
+  useEffect(() => {
+    registerColumnRef(column.id, containerRef);
+    return () => unregisterColumnRef(column.id);
+  }, [column.id, registerColumnRef, unregisterColumnRef]);
 
   const fetchConversations = useCallback(async () => {
     setIsLoading(true);
@@ -59,7 +68,7 @@ function MessagesColumn({ column }) {
       </div>
 
       {/* Conversations list */}
-      <div className="column-content">
+      <div ref={containerRef} className="column-content">
         {conversations.map((convo) => {
           const otherMembers = convo.members?.filter(
             (m) => m.did !== convo.myDid

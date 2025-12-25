@@ -1,27 +1,45 @@
-import { useState, useRef, useEffect } from 'react';
-import { X, Image, Film, Sparkles, Globe, ChevronDown, Play } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { X, Image, Film, Sparkles, Globe, ChevronDown, Play, FileText, Clock, Calendar } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { MAX_POST_LENGTH } from '../../utils/constants';
+import { useDraftStore } from '../../stores/draftStore';
 import postsService from '../../services/posts';
 import api from '../../services/api';
 import Avatar from '../common/Avatar';
 import Button from '../common/Button';
 import Loading from '../common/Loading';
+import Portal from '../common/Portal';
+import Dropdown from '../common/Dropdown';
 import { showSuccessToast, showErrorToast } from '../common/Toast';
 import GifPicker from './GifPicker';
+import HashtagAutocomplete from './HashtagAutocomplete';
+import DraftsManager from './DraftsManager';
 
 function SlideOutComposer({ isOpen, onClose, replyTo = null, quotePost = null }) {
   const { user } = useAuth();
+  const { saveDraft, schedulePost, counts, fetchCounts } = useDraftStore();
   const [text, setText] = useState('');
   const [images, setImages] = useState([]);
   const [video, setVideo] = useState(null);
   const [gif, setGif] = useState(null);
   const [showGifPicker, setShowGifPicker] = useState(false);
+  const [showDraftsManager, setShowDraftsManager] = useState(false);
+  const [showScheduler, setShowScheduler] = useState(false);
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('');
+  const [editingDraftId, setEditingDraftId] = useState(null);
   const [isPosting, setIsPosting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const [showHashtagAutocomplete, setShowHashtagAutocomplete] = useState(false);
   const fileInputRef = useRef(null);
   const videoInputRef = useRef(null);
   const textareaRef = useRef(null);
+
+  // Fetch draft counts on mount
+  useEffect(() => {
+    fetchCounts();
+  }, [fetchCounts]);
 
   const charCount = text.length;
   const isOverLimit = charCount > MAX_POST_LENGTH;
@@ -34,6 +52,132 @@ function SlideOutComposer({ isOpen, onClose, replyTo = null, quotePost = null })
       setTimeout(() => textareaRef.current?.focus(), 100);
     }
   }, [isOpen]);
+
+  // Handle text change with hashtag detection
+  const handleTextChange = useCallback((e) => {
+    const newText = e.target.value;
+    const newCursorPos = e.target.selectionStart;
+
+    setText(newText);
+    setCursorPosition(newCursorPos);
+
+    // Check if we're typing a hashtag
+    const textBeforeCursor = newText.slice(0, newCursorPos);
+    const lastHashIndex = textBeforeCursor.lastIndexOf('#');
+
+    if (lastHashIndex !== -1) {
+      const textAfterHash = textBeforeCursor.slice(lastHashIndex + 1);
+      // Show autocomplete if typing after # and no space yet
+      if (!textAfterHash.includes(' ') && !textAfterHash.includes('\n')) {
+        // Make sure # is at start or after space/newline
+        if (lastHashIndex === 0 || ' \n'.includes(textBeforeCursor[lastHashIndex - 1])) {
+          setShowHashtagAutocomplete(true);
+          return;
+        }
+      }
+    }
+    setShowHashtagAutocomplete(false);
+  }, []);
+
+  // Handle cursor position updates
+  const handleCursorChange = useCallback((e) => {
+    setCursorPosition(e.target.selectionStart);
+  }, []);
+
+  // Handle hashtag selection from autocomplete
+  const handleHashtagSelect = useCallback((newText, newCursorPosition) => {
+    setText(newText);
+    setCursorPosition(newCursorPosition);
+    setShowHashtagAutocomplete(false);
+
+    // Set cursor position in textarea
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
+      }
+    }, 0);
+  }, []);
+
+  // Handle paste event for images and videos
+  const handlePaste = (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      // Handle image paste
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+
+        // Check if we already have a video or GIF
+        if (video || gif) {
+          showErrorToast('Remove existing media to paste an image');
+          return;
+        }
+
+        // Check image count limit
+        if (images.length >= 4) {
+          showErrorToast('Maximum 4 images allowed');
+          return;
+        }
+
+        // Validate image size (1MB max)
+        if (file.size > 1024 * 1024) {
+          showErrorToast('Image too large. Maximum size is 1MB.');
+          return;
+        }
+
+        const newImage = {
+          file,
+          preview: URL.createObjectURL(file),
+          alt: '',
+        };
+        setImages([...images, newImage]);
+        return;
+      }
+
+      // Handle video paste
+      if (item.type.startsWith('video/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+
+        // Check if we already have images or GIF
+        if (images.length > 0 || gif) {
+          showErrorToast('Remove existing media to paste a video');
+          return;
+        }
+
+        // Check if we already have a video
+        if (video) {
+          showErrorToast('Only one video allowed per post');
+          return;
+        }
+
+        // Validate video type
+        const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime'];
+        if (!allowedTypes.includes(file.type)) {
+          showErrorToast('Invalid video type. Use MP4, WebM, or MOV.');
+          return;
+        }
+
+        // Validate video size (50MB max)
+        if (file.size > 50 * 1024 * 1024) {
+          showErrorToast('Video too large. Maximum size is 50MB.');
+          return;
+        }
+
+        setVideo({
+          file,
+          preview: URL.createObjectURL(file),
+          alt: '',
+        });
+        return;
+      }
+    }
+  };
 
   // Handle escape key
   useEffect(() => {
@@ -135,6 +279,8 @@ function SlideOutComposer({ isOpen, onClose, replyTo = null, quotePost = null })
       setVideo(null);
       setGif(null);
       setUploadProgress(0);
+      setCursorPosition(0);
+      setShowHashtagAutocomplete(false);
       showSuccessToast('Post created!');
       onClose();
     } catch (error) {
@@ -243,21 +389,92 @@ function SlideOutComposer({ isOpen, onClose, replyTo = null, quotePost = null })
     }
   };
 
-  // Reset state when closing
-  const handleClose = () => {
-    if (text.trim() || images.length > 0 || video || gif) {
-      if (!confirm('Discard this post?')) return;
+  // Save as draft
+  const handleSaveDraft = async () => {
+    if (!text.trim() && images.length === 0 && !video && !gif) {
+      showErrorToast('Nothing to save');
+      return;
     }
+
+    const result = await saveDraft({
+      text,
+      replyTo,
+      quotePost,
+      mediaIds: [], // TODO: Handle media in drafts
+    });
+
+    if (result.success) {
+      showSuccessToast('Draft saved');
+      resetForm();
+      onClose();
+    } else {
+      showErrorToast('Failed to save draft');
+    }
+  };
+
+  // Schedule post
+  const handleSchedule = async () => {
+    if (!scheduledDate || !scheduledTime) {
+      showErrorToast('Please select date and time');
+      return;
+    }
+
+    const scheduledAt = new Date(`${scheduledDate}T${scheduledTime}`);
+    if (scheduledAt <= new Date()) {
+      showErrorToast('Scheduled time must be in the future');
+      return;
+    }
+
+    const result = await schedulePost({
+      text,
+      replyTo,
+      quotePost,
+      mediaIds: [],
+      scheduledAt: scheduledAt.toISOString(),
+    });
+
+    if (result.success) {
+      showSuccessToast('Post scheduled');
+      resetForm();
+      setShowScheduler(false);
+      onClose();
+    } else {
+      showErrorToast(result.error || 'Failed to schedule post');
+    }
+  };
+
+  // Load draft for editing
+  const handleEditDraft = (draft) => {
+    setText(draft.text || '');
+    setEditingDraftId(draft.id);
+    // Note: media handling for drafts would need additional work
+  };
+
+  // Reset form
+  const resetForm = () => {
     setText('');
     setImages([]);
     setVideo(null);
     setGif(null);
     setUploadProgress(0);
+    setCursorPosition(0);
+    setShowHashtagAutocomplete(false);
+    setScheduledDate('');
+    setScheduledTime('');
+    setEditingDraftId(null);
+  };
+
+  // Reset state when closing
+  const handleClose = () => {
+    if (text.trim() || images.length > 0 || video || gif) {
+      if (!confirm('Discard this post?')) return;
+    }
+    resetForm();
     onClose();
   };
 
   return (
-    <>
+    <Portal>
       {/* Backdrop */}
       <div
         className={`fixed inset-0 z-50 bg-black/50 transition-opacity duration-300 ${
@@ -274,19 +491,88 @@ function SlideOutComposer({ isOpen, onClose, replyTo = null, quotePost = null })
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <button
-            onClick={handleClose}
-            className="p-2 -ml-2 rounded-full hover:bg-bg-tertiary transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-          <Button
-            variant="primary"
-            onClick={handleSubmit}
-            disabled={!canPost}
-          >
-            {isPosting ? <Loading size="sm" /> : 'Post'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleClose}
+              className="p-2 -ml-2 rounded-full hover:bg-bg-tertiary transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Drafts button */}
+            <button
+              onClick={() => setShowDraftsManager(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-tertiary hover:bg-border transition-colors text-sm text-text-secondary"
+            >
+              <FileText className="w-4 h-4" />
+              {(counts.drafts + counts.scheduled) > 0 && (
+                <span className="text-primary font-medium">
+                  {counts.drafts + counts.scheduled}
+                </span>
+              )}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Schedule dropdown */}
+            <Dropdown
+              align="right"
+              trigger={
+                <Button variant="ghost" size="sm" title="Schedule">
+                  <Clock className="w-4 h-4" />
+                </Button>
+              }
+            >
+              <div className="p-3 w-64">
+                <p className="text-sm font-medium text-text-primary mb-3">Schedule Post</p>
+                <div className="space-y-2">
+                  <input
+                    type="date"
+                    value={scheduledDate}
+                    onChange={(e) => setScheduledDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-3 py-2 bg-bg-tertiary border border-border rounded-lg text-text-primary text-sm"
+                  />
+                  <input
+                    type="time"
+                    value={scheduledTime}
+                    onChange={(e) => setScheduledTime(e.target.value)}
+                    className="w-full px-3 py-2 bg-bg-tertiary border border-border rounded-lg text-text-primary text-sm"
+                  />
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="w-full"
+                    onClick={handleSchedule}
+                    disabled={!canPost || !scheduledDate || !scheduledTime}
+                  >
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Schedule
+                  </Button>
+                </div>
+              </div>
+            </Dropdown>
+
+            {/* Save draft button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSaveDraft}
+              disabled={!hasContent}
+              title="Save as draft"
+            >
+              <FileText className="w-4 h-4" />
+            </Button>
+
+            {/* Post button */}
+            <Button
+              variant="primary"
+              onClick={handleSubmit}
+              disabled={!canPost}
+            >
+              {isPosting ? <Loading size="sm" /> : 'Post'}
+            </Button>
+          </div>
         </div>
 
         {/* Composer Content */}
@@ -302,15 +588,30 @@ function SlideOutComposer({ isOpen, onClose, replyTo = null, quotePost = null })
                 </div>
               )}
 
-              {/* Text input */}
-              <textarea
-                ref={textareaRef}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder={replyTo ? "Post your reply" : "What's happening?"}
-                className="w-full bg-transparent border-0 p-0 resize-none text-text-primary placeholder-text-muted focus:outline-none focus:ring-0 text-lg min-h-[120px]"
-                disabled={isPosting}
-              />
+              {/* Text input with hashtag autocomplete */}
+              <div className="relative">
+                <textarea
+                  ref={textareaRef}
+                  value={text}
+                  onChange={handleTextChange}
+                  onSelect={handleCursorChange}
+                  onClick={handleCursorChange}
+                  onPaste={handlePaste}
+                  placeholder={replyTo ? "Post your reply" : "What's happening?"}
+                  className="w-full bg-transparent border-0 p-0 resize-none text-text-primary placeholder-text-muted focus:outline-none focus:ring-0 text-lg min-h-[120px]"
+                  disabled={isPosting}
+                />
+
+                {/* Hashtag Autocomplete */}
+                <HashtagAutocomplete
+                  text={text}
+                  cursorPosition={cursorPosition}
+                  onSelect={handleHashtagSelect}
+                  textareaRef={textareaRef}
+                  isVisible={showHashtagAutocomplete}
+                  onClose={() => setShowHashtagAutocomplete(false)}
+                />
+              </div>
 
               {/* Video preview */}
               {video && (
@@ -540,7 +841,14 @@ function SlideOutComposer({ isOpen, onClose, replyTo = null, quotePost = null })
         onClose={() => setShowGifPicker(false)}
         onSelect={handleGifSelect}
       />
-    </>
+
+      {/* Drafts Manager Modal */}
+      <DraftsManager
+        isOpen={showDraftsManager}
+        onClose={() => setShowDraftsManager(false)}
+        onEditDraft={handleEditDraft}
+      />
+    </Portal>
   );
 }
 

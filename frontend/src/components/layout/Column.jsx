@@ -6,6 +6,8 @@ import NotificationColumn from '../feed/NotificationColumn';
 import SearchColumn from '../feed/SearchColumn';
 import MessagesColumn from '../feed/MessagesColumn';
 import ProfileColumn from '../feed/ProfileColumn';
+import HashtagColumn from '../feed/HashtagColumn';
+import BookmarksColumn from '../feed/BookmarksColumn';
 import { COLUMN_TYPES } from '../../utils/constants';
 
 function Column({ column }) {
@@ -44,6 +46,12 @@ function Column({ column }) {
 
       case COLUMN_TYPES.PROFILE:
         return <ProfileColumn column={column} />;
+
+      case COLUMN_TYPES.HASHTAG:
+        return <HashtagColumn column={column} />;
+
+      case COLUMN_TYPES.BOOKMARKS:
+        return <BookmarksColumn column={column} />;
 
       default:
         return (

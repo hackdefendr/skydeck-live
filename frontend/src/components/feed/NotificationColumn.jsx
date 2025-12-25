@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { Heart, Repeat2, UserPlus, MessageCircle, Quote, AtSign } from 'lucide-react';
 import { useNotificationStore } from '../../stores/notificationStore';
+import { useKeyboardStore } from '../../stores/keyboardStore';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { shortTimeAgo } from '../../utils/helpers';
 import Avatar from '../common/Avatar';
@@ -46,6 +47,13 @@ function NotificationColumn({ column }) {
   } = useNotificationStore();
 
   const containerRef = useRef(null);
+  const { registerColumnRef, unregisterColumnRef } = useKeyboardStore();
+
+  // Register scroll container ref for keyboard navigation
+  useEffect(() => {
+    registerColumnRef(column.id, containerRef);
+    return () => unregisterColumnRef(column.id);
+  }, [column.id, registerColumnRef, unregisterColumnRef]);
 
   // Auto-refresh based on column settings (default: 60 seconds)
   useAutoRefresh(fetchNotifications, column.refreshInterval ?? 60, true);

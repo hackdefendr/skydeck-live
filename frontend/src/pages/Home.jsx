@@ -1,16 +1,29 @@
-import { useEffect } from 'react';
 import Deck from '../components/layout/Deck';
 import Header from '../components/layout/Header';
 import Sidebar from '../components/layout/Sidebar';
 import { useColumns } from '../hooks/useColumns';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useFeedStore } from '../stores/feedStore';
 import Loading from '../components/common/Loading';
+import KeyboardShortcutsHelp from '../components/common/KeyboardShortcutsHelp';
 
 function Home() {
   const { columns, isLoading } = useColumns();
+  const { refreshFeed } = useFeedStore();
 
   // Initialize WebSocket connection
   useWebSocket();
+
+  // Initialize keyboard shortcuts
+  useKeyboardShortcuts({
+    onRefreshColumn: (index) => {
+      const column = columns[index];
+      if (column) {
+        refreshFeed(column.id);
+      }
+    },
+  });
 
   if (isLoading && columns.length === 0) {
     return (
@@ -21,7 +34,7 @@ function Home() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-bg-primary overflow-hidden">
+    <div className="deck-layout flex flex-col bg-bg-primary">
       <Header />
       <div className="flex-1 flex min-h-0">
         <Sidebar />
@@ -29,6 +42,7 @@ function Home() {
           <Deck columns={columns} />
         </main>
       </div>
+      <KeyboardShortcutsHelp />
     </div>
   );
 }

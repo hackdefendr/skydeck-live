@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { X, Search, TrendingUp } from 'lucide-react';
 import { giphyService } from '../../services/giphy';
 import Loading from '../common/Loading';
+import Portal from '../common/Portal';
 
 function GifPicker({ isOpen, onClose, onSelect }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -88,15 +89,15 @@ function GifPicker({ isOpen, onClose, onSelect }) {
   if (!isOpen) return null;
 
   return (
-    <>
+    <Portal>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-60 bg-black/50"
+        className="fixed inset-0 z-[60] bg-black/50"
         onClick={handleClose}
       />
 
       {/* Modal */}
-      <div className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[500px] md:h-[600px] z-60 bg-bg-secondary rounded-xl shadow-2xl flex flex-col overflow-hidden">
+      <div className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[500px] md:h-[600px] z-[60] bg-bg-secondary rounded-xl shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h2 className="text-lg font-semibold">Choose a GIF</h2>
@@ -177,7 +178,7 @@ function GifPicker({ isOpen, onClose, onSelect }) {
           <span className="text-xs text-text-muted">Powered by GIPHY</span>
         </div>
       </div>
-    </>
+    </Portal>
   );
 }
 

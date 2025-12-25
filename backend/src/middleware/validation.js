@@ -31,16 +31,20 @@ export const schemas = {
     body: z.object({
       identifier: z.string().min(1, 'Identifier is required'),
       password: z.string().min(1, 'Password is required'),
+      service: z.string().url().optional(), // Custom PDS URL
+      authFactorToken: z.string().optional(), // 2FA auth factor token
+      twoFactorCode: z.string().optional(), // 2FA verification code
     }),
   }),
 
   createPost: z.object({
     body: z.object({
       text: z.string().min(1).max(300, 'Post must be 300 characters or less'),
-      replyTo: z.string().optional(),
-      quoteUri: z.string().optional(),
-      mediaIds: z.array(z.string()).optional(),
-      langs: z.array(z.string()).optional(),
+      replyTo: z.string().nullish(), // Allow null, undefined, or string
+      quoteUri: z.string().nullish(),
+      mediaIds: z.array(z.string()).nullish(),
+      langs: z.array(z.string()).nullish(),
+      embed: z.any().nullish(), // Allow any embed object
     }),
   }),
 
@@ -62,7 +66,7 @@ export const schemas = {
     body: z.object({
       type: z.enum([
         'HOME', 'NOTIFICATIONS', 'MENTIONS', 'MESSAGES',
-        'SEARCH', 'LIST', 'FEED', 'PROFILE', 'LIKES', 'BOOKMARKS',
+        'SEARCH', 'LIST', 'FEED', 'PROFILE', 'LIKES', 'BOOKMARKS', 'HASHTAG',
       ]),
       title: z.string().min(1).max(50),
       position: z.number().int().optional(),
@@ -72,6 +76,7 @@ export const schemas = {
       listUri: z.string().optional(),
       searchQuery: z.string().optional(),
       profileDid: z.string().optional(),
+      hashtag: z.string().optional(),
     }),
   }),
 
@@ -95,6 +100,7 @@ export const schemas = {
       columnGap: z.number().int().min(0).max(32).optional(),
       compactMode: z.boolean().optional(),
       customCss: z.string().max(10000).nullable().optional(),
+      logoVariant: z.string().optional(),
     }).passthrough(),
   }),
 

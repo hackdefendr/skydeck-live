@@ -3,6 +3,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: skydeck-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: skydeck
       POSTGRES_PASSWORD: skydeck
@@ -23,6 +24,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: skydeck-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
@@ -41,15 +43,22 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: skydeck-backend
+    restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: postgresql://skydeck:skydeck@postgres:5432/skydeck?schema=public
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       SESSION_SECRET: ${SESSION_SECRET:-change-this-session-secret}
       BLUESKY_SERVICE: https://bsky.social
+      BLUESKY_CHAT_SERVICE: https://api.bsky.chat
+      ATPROTO_API_KEY: ${ATPROTO_API_KEY:-}
+      GIPHY_API_KEY: ${GIPHY_API_KEY:-}
       FRONTEND_URL: http://localhost:5173
+      MAX_FILE_SIZE: ${MAX_FILE_SIZE:-52428800}
+      UPLOAD_DIR: /app/uploads
     ports:
       - "3000:3000"
     depends_on:
@@ -57,6 +66,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       - skydeck-network
     volumes:
@@ -68,12 +83,19 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: skydeck-frontend
+    restart: unless-stopped
     environment:
-      VITE_API_URL: http://localhost:3000
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
     ports:
       - "5173:80"
     depends_on:
       - backend
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
     networks:
       - skydeck-network
 

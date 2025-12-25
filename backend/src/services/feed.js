@@ -168,6 +168,12 @@ class FeedService {
         }
         return { posts: [] };
 
+      case 'HASHTAG':
+        if (column.hashtag) {
+          return this.searchByHashtag(user, column.hashtag);
+        }
+        return { posts: [] };
+
       default:
         return { feed: [] };
     }
@@ -177,6 +183,14 @@ class FeedService {
   async searchPosts(user, query, { limit = 25, cursor } = {}) {
     const agent = await authService.getBlueskyAgent(user);
     return blueskyService.searchPosts(agent, query, { limit, cursor });
+  }
+
+  // Search posts by hashtag
+  async searchByHashtag(user, hashtag, { limit = 50, cursor } = {}) {
+    const agent = await authService.getBlueskyAgent(user);
+    // Ensure hashtag starts with # for search
+    const searchTag = hashtag.startsWith('#') ? hashtag : `#${hashtag}`;
+    return blueskyService.searchPosts(agent, searchTag, { limit, cursor });
   }
 
   // Get notifications
@@ -189,6 +203,13 @@ class FeedService {
   async markNotificationsSeen(user) {
     const agent = await authService.getBlueskyAgent(user);
     return blueskyService.updateSeenNotifications(agent);
+  }
+
+  // Get posts by URIs (for bookmarks, etc.)
+  async getPostsByUris(user, uris) {
+    if (!uris || uris.length === 0) return [];
+    const agent = await authService.getBlueskyAgent(user);
+    return blueskyService.getPosts(agent, uris);
   }
 }
 

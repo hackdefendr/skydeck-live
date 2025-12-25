@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Calendar, Link as LinkIcon, MapPin, Users } from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { useKeyboardStore } from '../../stores/keyboardStore';
 import { formatNumber, formatDate } from '../../utils/helpers';
 import Avatar from '../common/Avatar';
 import Button from '../common/Button';
@@ -15,8 +16,16 @@ function ProfileColumn({ column }) {
   const [feed, setFeed] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('posts');
+  const containerRef = useRef(null);
+  const { registerColumnRef, unregisterColumnRef } = useKeyboardStore();
 
   const profileDid = column.profileDid || user?.did;
+
+  // Register scroll container ref for keyboard navigation
+  useEffect(() => {
+    registerColumnRef(column.id, containerRef);
+    return () => unregisterColumnRef(column.id);
+  }, [column.id, registerColumnRef, unregisterColumnRef]);
 
   const fetchProfile = useCallback(async () => {
     setIsLoading(true);
@@ -60,7 +69,7 @@ function ProfileColumn({ column }) {
   const isOwnProfile = user?.did === profile.did;
 
   return (
-    <div className="column-content">
+    <div ref={containerRef} className="column-content">
       {/* Banner */}
       {profile.banner ? (
         <div className="h-32 bg-bg-tertiary">

@@ -1,22 +1,23 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useFeed } from '../../hooks/useFeed';
-import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { useBookmarkStore } from '../../stores/bookmarkStore';
 import { useKeyboardStore } from '../../stores/keyboardStore';
 import Post from '../posts/Post';
 import PostViewer from '../posts/PostViewer';
 import SlideOutComposer from '../posts/SlideOutComposer';
 import Loading from '../common/Loading';
+import { Bookmark } from 'lucide-react';
 
-function FeedColumn({ column }) {
-  const { feed, isLoading, error, hasMore, refresh, loadMore } = useFeed(column.id);
+function BookmarksColumn({ column }) {
+  const {
+    bookmarks,
+    isLoading,
+    error,
+    hasMore,
+    fetchBookmarks,
+  } = useBookmarkStore();
+
   const containerRef = useRef(null);
   const { registerColumnRef, unregisterColumnRef } = useKeyboardStore();
-
-  // Register scroll container ref for keyboard navigation
-  useEffect(() => {
-    registerColumnRef(column.id, containerRef);
-    return () => unregisterColumnRef(column.id);
-  }, [column.id, registerColumnRef, unregisterColumnRef]);
 
   // Post viewer state
   const [selectedPost, setSelectedPost] = useState(null);
@@ -27,8 +28,16 @@ function FeedColumn({ column }) {
   const [replyTo, setReplyTo] = useState(null);
   const [quotePost, setQuotePost] = useState(null);
 
-  // Auto-refresh based on column settings (default: 60 seconds)
-  useAutoRefresh(refresh, column.refreshInterval ?? 60, true);
+  // Register scroll container ref for keyboard navigation
+  useEffect(() => {
+    registerColumnRef(column.id, containerRef);
+    return () => unregisterColumnRef(column.id);
+  }, [column.id, registerColumnRef, unregisterColumnRef]);
+
+  // Fetch bookmarks on mount
+  useEffect(() => {
+    fetchBookmarks(true);
+  }, [fetchBookmarks]);
 
   // Infinite scroll
   const handleScroll = useCallback(() => {
@@ -36,9 +45,9 @@ function FeedColumn({ column }) {
 
     const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
     if (scrollHeight - scrollTop <= clientHeight * 1.5) {
-      loadMore();
+      fetchBookmarks(false);
     }
-  }, [isLoading, hasMore, loadMore]);
+  }, [isLoading, hasMore, fetchBookmarks]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -84,24 +93,24 @@ function FeedColumn({ column }) {
         className="column-content"
       >
         {/* Loading state */}
-        {isLoading && feed.length === 0 && (
+        {isLoading && bookmarks.length === 0 && (
           <div className="flex items-center justify-center py-8">
             <Loading size="lg" />
           </div>
         )}
 
         {/* Error state */}
-        {error && feed.length === 0 && (
+        {error && bookmarks.length === 0 && (
           <div className="flex items-center justify-center py-8 text-text-muted">
-            <p>Failed to load feed</p>
+            <p>Failed to load bookmarks</p>
           </div>
         )}
 
-        {/* Feed items */}
-        {feed.map((item, index) => (
+        {/* Bookmarked posts */}
+        {bookmarks.map((item, index) => (
           <Post
-            key={item.post?.uri || item.uri || index}
-            item={item}
+            key={item.post?.uri || index}
+            item={{ post: item.post }}
             onClick={handlePostClick}
             onReply={handleReply}
             onQuote={handleQuote}
@@ -109,23 +118,25 @@ function FeedColumn({ column }) {
         ))}
 
         {/* Load more indicator */}
-        {isLoading && feed.length > 0 && (
+        {isLoading && bookmarks.length > 0 && (
           <div className="flex items-center justify-center py-4">
             <Loading size="md" />
           </div>
         )}
 
-        {/* End of feed */}
-        {!hasMore && feed.length > 0 && (
+        {/* End of bookmarks */}
+        {!hasMore && bookmarks.length > 0 && (
           <div className="text-center py-8 text-text-muted text-sm">
             You've reached the end
           </div>
         )}
 
         {/* Empty state */}
-        {!isLoading && feed.length === 0 && !error && (
-          <div className="flex items-center justify-center py-8 text-text-muted">
-            <p>No posts yet</p>
+        {!isLoading && bookmarks.length === 0 && !error && (
+          <div className="flex flex-col items-center justify-center py-12 text-text-muted">
+            <Bookmark className="w-12 h-12 mb-3 opacity-50" />
+            <p className="font-medium">No bookmarks yet</p>
+            <p className="text-sm mt-1">Posts you bookmark will appear here</p>
           </div>
         )}
       </div>
@@ -150,4 +161,4 @@ function FeedColumn({ column }) {
   );
 }
 
-export default FeedColumn;
+export default BookmarksColumn;

@@ -10,6 +10,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { rateLimiter } from './middleware/rateLimiter.js';
 import routes from './routes/index.js';
 import { PrismaClient } from '@prisma/client';
+import { schedulerService } from './services/scheduler.js';
 
 // Initialize Prisma
 export const prisma = new PrismaClient();
@@ -100,10 +101,16 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 // Start server
-app.set('trust proxy', true);
+// Trust proxy settings for Docker/nginx setup
+// Use 1 to trust only the first proxy (nginx reverse proxy)
+// This prevents IP spoofing via X-Forwarded-For header manipulation
+app.set('trust proxy', 1);
 httpServer.listen(config.port, () => {
   console.log(`SkyDeck API running on port ${config.port}`);
   console.log(`Environment: ${config.nodeEnv}`);
+
+  // Start the scheduled posts processor (check every minute)
+  schedulerService.start(60000);
 });
 
 export default app;

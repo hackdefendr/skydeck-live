@@ -12,9 +12,12 @@ import {
   Settings,
   Feather,
   ArrowLeft,
+  Hash,
+  Bookmark,
 } from 'lucide-react';
 import { useColumns } from '../../hooks/useColumns';
 import { useNotificationStore } from '../../stores/notificationStore';
+import { useKeyboardStore } from '../../stores/keyboardStore';
 import { COLUMN_TYPES } from '../../utils/constants';
 import Button from '../common/Button';
 import Modal from '../common/Modal';
@@ -30,20 +33,33 @@ const columnOptions = [
   { type: COLUMN_TYPES.SEARCH, icon: Search, label: 'Search' },
   { type: COLUMN_TYPES.PROFILE, icon: User, label: 'Profile' },
   { type: COLUMN_TYPES.LIKES, icon: Heart, label: 'Likes' },
+  { type: COLUMN_TYPES.BOOKMARKS, icon: Bookmark, label: 'Bookmarks' },
   { type: COLUMN_TYPES.FEED, icon: Rss, label: 'Custom Feed' },
   { type: COLUMN_TYPES.LIST, icon: List, label: 'List' },
+  { type: COLUMN_TYPES.HASHTAG, icon: Hash, label: 'Hashtag' },
 ];
 
 function Sidebar() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [showFeedPicker, setShowFeedPicker] = useState(false);
+  const [showHashtagInput, setShowHashtagInput] = useState(false);
+  const [hashtagValue, setHashtagValue] = useState('');
   const [savedFeeds, setSavedFeeds] = useState([]);
   const [suggestedFeeds, setSuggestedFeeds] = useState([]);
   const [isLoadingFeeds, setIsLoadingFeeds] = useState(false);
   const [feedTab, setFeedTab] = useState('saved');
   const { addColumn } = useColumns();
   const { unreadCount } = useNotificationStore();
+  const { shouldOpenCompose, setShouldOpenCompose } = useKeyboardStore();
+
+  // Open compose when triggered by keyboard shortcut
+  useEffect(() => {
+    if (shouldOpenCompose) {
+      setIsComposeOpen(true);
+      setShouldOpenCompose(false);
+    }
+  }, [shouldOpenCompose, setShouldOpenCompose]);
 
   // Fetch feeds when feed picker is shown
   useEffect(() => {
@@ -73,11 +89,34 @@ function Sidebar() {
       setShowFeedPicker(true);
       return;
     }
+    if (type === COLUMN_TYPES.HASHTAG) {
+      // Show hashtag input instead of adding directly
+      setShowHashtagInput(true);
+      return;
+    }
     const option = columnOptions.find((o) => o.type === type);
     await addColumn({
       type,
       title: option?.label || type,
     });
+    setIsAddModalOpen(false);
+  };
+
+  const handleAddHashtagColumn = async (e) => {
+    e.preventDefault();
+    if (!hashtagValue.trim()) return;
+
+    // Remove # prefix if present for storage, but keep it for display
+    const cleanHashtag = hashtagValue.trim().replace(/^#/, '');
+
+    await addColumn({
+      type: COLUMN_TYPES.HASHTAG,
+      title: `#${cleanHashtag}`,
+      hashtag: cleanHashtag,
+    });
+
+    setHashtagValue('');
+    setShowHashtagInput(false);
     setIsAddModalOpen(false);
   };
 
@@ -94,6 +133,8 @@ function Sidebar() {
   const handleCloseModal = () => {
     setIsAddModalOpen(false);
     setShowFeedPicker(false);
+    setShowHashtagInput(false);
+    setHashtagValue('');
     setFeedTab('saved');
   };
 
@@ -143,9 +184,53 @@ function Sidebar() {
       <Modal
         isOpen={isAddModalOpen}
         onClose={handleCloseModal}
-        title={showFeedPicker ? "Select a Feed" : "Add Column"}
+        title={showFeedPicker ? "Select a Feed" : showHashtagInput ? "Add Hashtag Column" : "Add Column"}
       >
-        {showFeedPicker ? (
+        {showHashtagInput ? (
+          <div className="p-4 space-y-4">
+            {/* Back button */}
+            <button
+              onClick={() => setShowHashtagInput(false)}
+              className="flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm">Back to column types</span>
+            </button>
+
+            {/* Hashtag input */}
+            <form onSubmit={handleAddHashtagColumn} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Enter hashtag to track
+                </label>
+                <div className="relative">
+                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
+                  <input
+                    type="text"
+                    value={hashtagValue}
+                    onChange={(e) => setHashtagValue(e.target.value)}
+                    placeholder="bluesky"
+                    className="w-full pl-10 pr-4 py-3 bg-bg-tertiary border border-border rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                    autoFocus
+                  />
+                </div>
+                <p className="mt-2 text-xs text-text-muted">
+                  Posts containing this hashtag will appear in this column
+                </p>
+              </div>
+
+              <Button
+                type="submit"
+                variant="primary"
+                className="w-full"
+                disabled={!hashtagValue.trim()}
+              >
+                <Hash className="w-4 h-4 mr-2" />
+                Add #{hashtagValue.trim().replace(/^#/, '') || 'hashtag'} Column
+              </Button>
+            </form>
+          </div>
+        ) : showFeedPicker ? (
           <div className="p-4 space-y-4">
             {/* Back button */}
             <button

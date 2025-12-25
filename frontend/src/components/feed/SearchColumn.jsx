@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
 import api from '../../services/api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { useKeyboardStore } from '../../stores/keyboardStore';
 import Post from '../posts/Post';
 import Avatar from '../common/Avatar';
 import Loading from '../common/Loading';
@@ -13,6 +14,14 @@ function SearchColumn({ column }) {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
   const queryRef = useRef(query);
+  const containerRef = useRef(null);
+  const { registerColumnRef, unregisterColumnRef } = useKeyboardStore();
+
+  // Register scroll container ref for keyboard navigation
+  useEffect(() => {
+    registerColumnRef(column.id, containerRef);
+    return () => unregisterColumnRef(column.id);
+  }, [column.id, registerColumnRef, unregisterColumnRef]);
 
   // Keep queryRef in sync
   useEffect(() => {
@@ -100,7 +109,7 @@ function SearchColumn({ column }) {
       </div>
 
       {/* Results */}
-      <div className="column-content">
+      <div ref={containerRef} className="column-content">
         {isLoading && (
           <div className="flex items-center justify-center py-8">
             <Loading size="lg" />
