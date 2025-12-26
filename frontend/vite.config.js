@@ -22,19 +22,71 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
-        manualChunks: {
+        manualChunks(id) {
           // React core
-          'vendor-react': ['react', 'react-dom'],
+          if (id.includes('node_modules/react-dom')) {
+            return 'vendor-react-dom';
+          }
+          if (id.includes('node_modules/react/') || id.includes('node_modules/scheduler')) {
+            return 'vendor-react';
+          }
           // React Router
-          'vendor-router': ['react-router-dom'],
-          // UI libraries
-          'vendor-ui': ['lucide-react', 'framer-motion', 'react-hot-toast'],
+          if (id.includes('node_modules/react-router') || id.includes('node_modules/@remix-run')) {
+            return 'vendor-router';
+          }
+          // HLS.js - video streaming
+          if (id.includes('node_modules/hls.js')) {
+            return 'vendor-hls';
+          }
+          // Framer Motion - animations
+          if (id.includes('node_modules/framer-motion')) {
+            return 'vendor-framer';
+          }
+          // Lucide icons
+          if (id.includes('node_modules/lucide-react')) {
+            return 'vendor-icons';
+          }
           // Drag and drop
-          'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
-          // Data management
-          'vendor-data': ['@tanstack/react-query', 'zustand', 'axios'],
-          // Utilities
-          'vendor-utils': ['date-fns', 'clsx', 'socket.io-client'],
+          if (id.includes('node_modules/@dnd-kit')) {
+            return 'vendor-dnd';
+          }
+          // TanStack Query
+          if (id.includes('node_modules/@tanstack')) {
+            return 'vendor-query';
+          }
+          // State management
+          if (id.includes('node_modules/zustand')) {
+            return 'vendor-zustand';
+          }
+          // HTTP client
+          if (id.includes('node_modules/axios')) {
+            return 'vendor-axios';
+          }
+          // Socket.io
+          if (id.includes('node_modules/socket.io')) {
+            return 'vendor-socket';
+          }
+          // Date utilities
+          if (id.includes('node_modules/date-fns')) {
+            return 'vendor-date';
+          }
+          // Other small utilities
+          if (id.includes('node_modules/clsx') || id.includes('node_modules/react-hot-toast')) {
+            return 'vendor-utils';
+          }
+          // App components - split by feature
+          if (id.includes('/components/posts/')) {
+            return 'app-posts';
+          }
+          if (id.includes('/components/feed/')) {
+            return 'app-feed';
+          }
+          if (id.includes('/components/settings/') || id.includes('/components/theme/')) {
+            return 'app-settings';
+          }
+          if (id.includes('/stores/')) {
+            return 'app-stores';
+          }
         },
       },
     },
