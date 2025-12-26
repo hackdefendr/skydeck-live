@@ -1,15 +1,18 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Settings, Plus, RefreshCw } from 'lucide-react';
+import { Settings, Plus, RefreshCw, HelpCircle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotificationStore } from '../../stores/notificationStore';
 import Button from '../common/Button';
 import Avatar from '../common/Avatar';
 import Dropdown from '../common/Dropdown';
 import Logo from '../common/Logo';
+import AboutPopup from '../common/AboutPopup';
 
 function Header() {
   const { user, logout } = useAuth();
   const { unreadCount } = useNotificationStore();
+  const [showAbout, setShowAbout] = useState(false);
 
   return (
     <header className="h-20 bg-bg-secondary border-b border-border flex items-center px-4 gap-4">
@@ -26,6 +29,15 @@ function Header() {
 
       {/* Actions */}
       <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="About"
+          onClick={() => setShowAbout(true)}
+        >
+          <HelpCircle className="w-5 h-5" />
+        </Button>
+
         <Button
           variant="ghost"
           size="icon"
@@ -67,6 +79,9 @@ function Header() {
           </Dropdown.Item>
         </Dropdown>
       </div>
+
+      {/* About Popup */}
+      <AboutPopup isOpen={showAbout} onClose={() => setShowAbout(false)} />
     </header>
   );
 }

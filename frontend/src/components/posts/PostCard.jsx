@@ -4,18 +4,25 @@ import { shortTimeAgo } from '../../utils/helpers';
 import Avatar from '../common/Avatar';
 import Button from '../common/Button';
 import Dropdown from '../common/Dropdown';
+import ProfilePopup from '../common/ProfilePopup';
 import MediaPreview from './MediaPreview';
 import PostActions from './PostActions';
 
 function PostCard({ post, showReply = true, compact = false, onClick, onReply, onQuote }) {
   const { author, record, embed, replyCount, repostCount, likeCount, viewer, indexedAt } = post;
+  const [showProfilePopup, setShowProfilePopup] = useState(false);
 
   if (!author || !record) return null;
 
   const handleClick = (e) => {
     // Don't trigger if clicking on interactive elements
-    if (e.target.closest('button, a, [role="button"]')) return;
+    if (e.target.closest('button, a, [role="button"], .avatar-clickable')) return;
     if (onClick) onClick(post);
+  };
+
+  const handleAvatarClick = (e) => {
+    e.stopPropagation();
+    setShowProfilePopup(true);
   };
 
   return (
@@ -24,12 +31,17 @@ function PostCard({ post, showReply = true, compact = false, onClick, onReply, o
       onClick={handleClick}
     >
       <div className="flex gap-3">
-        {/* Avatar */}
-        <Avatar
-          src={author.avatar}
-          alt={author.displayName}
-          size={compact ? 'sm' : 'md'}
-        />
+        {/* Avatar - clickable to show profile */}
+        <div
+          onClick={handleAvatarClick}
+          className="avatar-clickable flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          <Avatar
+            src={author.avatar}
+            alt={author.displayName}
+            size={compact ? 'sm' : 'md'}
+          />
+        </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
@@ -95,6 +107,13 @@ function PostCard({ post, showReply = true, compact = false, onClick, onReply, o
           />
         </div>
       </div>
+
+      {/* Profile Popup */}
+      <ProfilePopup
+        actor={author}
+        isOpen={showProfilePopup}
+        onClose={() => setShowProfilePopup(false)}
+      />
     </article>
   );
 }

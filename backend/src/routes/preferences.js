@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import { authService } from '../services/auth.js';
 import { blueskyService } from '../services/bluesky.js';
 
 const router = Router();
@@ -81,16 +82,6 @@ const CONTENT_LABELS = [
   },
 ];
 
-// Get helper to create agent
-async function getAgent(user) {
-  return blueskyService.createAuthenticatedAgent(
-    user.accessJwt,
-    user.refreshJwt,
-    user.did,
-    user.handle
-  );
-}
-
 // Get all content label definitions
 router.get('/content-labels', authenticate, asyncHandler(async (req, res) => {
   res.json({ labels: CONTENT_LABELS });
@@ -98,7 +89,7 @@ router.get('/content-labels', authenticate, asyncHandler(async (req, res) => {
 
 // Get user's content label preferences
 router.get('/content-labels/prefs', authenticate, asyncHandler(async (req, res) => {
-  const agent = await getAgent(req.user);
+  const agent = await authService.getBlueskyAgent(req.user);
   const prefs = await blueskyService.getContentLabelPrefs(agent);
 
   // Map preferences to a more usable format
@@ -120,7 +111,7 @@ router.put('/content-labels/prefs/:label', authenticate, asyncHandler(async (req
     return res.status(400).json({ error: 'Invalid visibility. Must be: ignore, warn, or hide' });
   }
 
-  const agent = await getAgent(req.user);
+  const agent = await authService.getBlueskyAgent(req.user);
   const result = await blueskyService.setContentLabelPref(agent, {
     label,
     visibility,
@@ -136,7 +127,7 @@ router.put('/content-labels/prefs/:label', authenticate, asyncHandler(async (req
 
 // Get adult content setting
 router.get('/adult-content', authenticate, asyncHandler(async (req, res) => {
-  const agent = await getAgent(req.user);
+  const agent = await authService.getBlueskyAgent(req.user);
   const enabled = await blueskyService.getAdultContentEnabled(agent);
   res.json({ enabled });
 }));
@@ -149,7 +140,7 @@ router.put('/adult-content', authenticate, asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'enabled must be a boolean' });
   }
 
-  const agent = await getAgent(req.user);
+  const agent = await authService.getBlueskyAgent(req.user);
   const result = await blueskyService.setAdultContentEnabled(agent, enabled);
 
   if (!result.success) {
@@ -161,7 +152,7 @@ router.put('/adult-content', authenticate, asyncHandler(async (req, res) => {
 
 // Get all preferences in one call
 router.get('/', authenticate, asyncHandler(async (req, res) => {
-  const agent = await getAgent(req.user);
+  const agent = await authService.getBlueskyAgent(req.user);
 
   const [labelPrefs, adultContentEnabled] = await Promise.all([
     blueskyService.getContentLabelPrefs(agent),

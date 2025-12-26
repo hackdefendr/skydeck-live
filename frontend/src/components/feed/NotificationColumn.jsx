@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Heart, Repeat2, UserPlus, MessageCircle, Quote, AtSign } from 'lucide-react';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { useKeyboardStore } from '../../stores/keyboardStore';
@@ -6,6 +6,8 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { shortTimeAgo } from '../../utils/helpers';
 import Avatar from '../common/Avatar';
 import Loading from '../common/Loading';
+import PostViewer from '../posts/PostViewer';
+import SlideOutComposer from '../posts/SlideOutComposer';
 
 const notificationIcons = {
   like: Heart,
@@ -48,6 +50,15 @@ function NotificationColumn({ column }) {
 
   const containerRef = useRef(null);
   const { registerColumnRef, unregisterColumnRef } = useKeyboardStore();
+
+  // Post viewer state
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [showPostViewer, setShowPostViewer] = useState(false);
+
+  // Composer state for reply/quote
+  const [showComposer, setShowComposer] = useState(false);
+  const [replyTo, setReplyTo] = useState(null);
+  const [quotePost, setQuotePost] = useState(null);
 
   // Register scroll container ref for keyboard navigation
   useEffect(() => {
@@ -94,7 +105,70 @@ function NotificationColumn({ column }) {
     return new Date(notification.indexedAt) > new Date(seenAt);
   };
 
+  // Get the post to view based on notification type
+  const getPostForNotification = (notification) => {
+    // For like/repost, show the subject post (your post that was liked/reposted)
+    if (notification.reason === 'like' || notification.reason === 'repost') {
+      if (notification.subjectPost) {
+        return notification.subjectPost;
+      }
+      // Fallback: construct a minimal post object from the subject URI
+      if (notification.reasonSubject) {
+        return { uri: notification.reasonSubject };
+      }
+    }
+    // For reply/quote/mention, show the notification post itself (their reply/quote)
+    if (notification.reason === 'reply' || notification.reason === 'quote' || notification.reason === 'mention') {
+      return {
+        uri: notification.uri,
+        cid: notification.cid,
+        author: notification.author,
+        record: notification.record,
+        indexedAt: notification.indexedAt,
+      };
+    }
+    return null;
+  };
+
+  const handleNotificationClick = (notification) => {
+    // For follows, we could open a profile - but for now just skip
+    if (notification.reason === 'follow') {
+      return;
+    }
+
+    const post = getPostForNotification(notification);
+    if (post) {
+      setSelectedPost(post);
+      setShowPostViewer(true);
+    }
+  };
+
+  const handleReply = (post) => {
+    setReplyTo({
+      uri: post.uri,
+      cid: post.cid,
+      handle: post.author?.handle,
+      root: post.record?.reply?.root || { uri: post.uri, cid: post.cid },
+      parent: { uri: post.uri, cid: post.cid },
+    });
+    setQuotePost(null);
+    setShowComposer(true);
+  };
+
+  const handleQuote = (post) => {
+    setQuotePost(post);
+    setReplyTo(null);
+    setShowComposer(true);
+  };
+
+  const handleCloseComposer = () => {
+    setShowComposer(false);
+    setReplyTo(null);
+    setQuotePost(null);
+  };
+
   return (
+    <>
     <div
       ref={containerRef}
       className="column-content"
@@ -112,13 +186,15 @@ function NotificationColumn({ column }) {
         const colorClass = notificationColors[notification.reason] || 'text-primary';
         const label = notificationLabels[notification.reason] || notification.reason;
         const author = notification.author;
+        const isClickable = notification.reason !== 'follow';
 
         return (
           <div
             key={notification.uri || index}
-            className={`px-4 py-3 border-b border-border flex gap-3 hover:bg-bg-tertiary/50 transition-colors ${
+            onClick={() => handleNotificationClick(notification)}
+            className={`px-4 py-3 border-b border-border flex gap-3 transition-colors ${
               isUnread(notification) ? 'bg-primary/5' : ''
-            }`}
+            } ${isClickable ? 'cursor-pointer hover:bg-bg-tertiary/50' : ''}`}
           >
             <div className="w-10 flex justify-center">
               <Icon className={`w-5 h-5 ${colorClass}`} />
@@ -154,6 +230,13 @@ function NotificationColumn({ column }) {
                   {notification.record.text}
                 </p>
               )}
+
+              {/* Click hint for interactive notifications */}
+              {isClickable && (
+                <p className="text-xs text-text-muted mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Click to view thread
+                </p>
+              )}
             </div>
           </div>
         );
@@ -173,6 +256,24 @@ function NotificationColumn({ column }) {
         </div>
       )}
     </div>
+
+    {/* Post Viewer Modal */}
+    <PostViewer
+      post={selectedPost}
+      isOpen={showPostViewer}
+      onClose={() => setShowPostViewer(false)}
+      onReply={handleReply}
+      onQuote={handleQuote}
+    />
+
+    {/* Reply/Quote Composer */}
+    <SlideOutComposer
+      isOpen={showComposer}
+      onClose={handleCloseComposer}
+      replyTo={replyTo}
+      quotePost={quotePost}
+    />
+  </>
   );
 }
 

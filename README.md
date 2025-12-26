@@ -17,6 +17,7 @@ A feature-complete Bluesky social media web frontend with a multi-column "deck" 
 - **Custom PDS Support**: Connect to any AT Protocol PDS, not just bsky.social
 - **Two-Factor Authentication**: Full 2FA support for login
 - **Feed Deduplication**: Smart deduplication prevents duplicate posts when scrolling or refreshing feeds
+- **About Dialog**: Access app information and version details from the help icon in the navigation bar
 
 ### Post Composer
 - **Slide-Out Composer**: Full-featured post composer that slides out from the left sidebar
@@ -36,6 +37,13 @@ A feature-complete Bluesky social media web frontend with a multi-column "deck" 
 - **Quote Post Display**: Quoted posts are displayed in full with embedded media
 - **Repost Indicators**: Clear visual indication of reposts with attribution
 - **User Display**: Username and handle shown on separate lines for clarity
+- **Clickable Avatars**: Click any user's avatar to view their profile in a popup with follow/unfollow actions
+
+### Interactive Notifications
+- **Clickable Notifications**: Click on any notification to view the full thread
+- **Quick Reply**: Reply or quote posts directly from the notification thread view
+- **Thread Context**: See parent posts and all replies when clicking a notification
+- **Visual Feedback**: Hover effects and cursor indicators show clickable notifications
 
 ### Media Support
 - **Images**: Full-size image lightbox with alt text display
