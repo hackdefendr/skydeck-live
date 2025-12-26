@@ -33,6 +33,33 @@ router.get('/users', authenticate, validate(schemas.search), asyncHandler(async 
   res.json(result);
 }));
 
+// Search starter packs
+router.get('/starter-packs', authenticate, validate(schemas.search), asyncHandler(async (req, res) => {
+  const { q, limit = 25, cursor } = req.query;
+  const agent = await authService.getBlueskyAgent(req.user);
+
+  const result = await blueskyService.searchStarterPacks(agent, q, {
+    limit: parseInt(limit, 10),
+    cursor,
+  });
+
+  res.json(result);
+}));
+
+// Get a specific starter pack by URI
+router.get('/starter-pack', authenticate, asyncHandler(async (req, res) => {
+  const { uri } = req.query;
+
+  if (!uri) {
+    return res.status(400).json({ error: 'Starter pack URI is required' });
+  }
+
+  const agent = await authService.getBlueskyAgent(req.user);
+  const starterPack = await blueskyService.getStarterPack(agent, uri);
+
+  res.json({ starterPack });
+}));
+
 // Combined search
 router.get('/', authenticate, asyncHandler(async (req, res) => {
   const { q, limit = 10 } = req.query;

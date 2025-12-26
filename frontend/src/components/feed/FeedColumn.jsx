@@ -98,15 +98,20 @@ function FeedColumn({ column }) {
         )}
 
         {/* Feed items */}
-        {feed.map((item, index) => (
-          <Post
-            key={item.post?.uri || item.uri || index}
-            item={item}
-            onClick={handlePostClick}
-            onReply={handleReply}
-            onQuote={handleQuote}
-          />
-        ))}
+        {feed.map((item, index) => {
+          // Generate a stable key - prefer URI, fallback to a composite key
+          const uri = item.post?.uri || item.uri;
+          const key = uri || `${column.id}-${item.post?.cid || item.cid || index}`;
+          return (
+            <Post
+              key={key}
+              item={item}
+              onClick={handlePostClick}
+              onReply={handleReply}
+              onQuote={handleQuote}
+            />
+          );
+        })}
 
         {/* Load more indicator */}
         {isLoading && feed.length > 0 && (

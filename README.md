@@ -16,6 +16,7 @@ A feature-complete Bluesky social media web frontend with a multi-column "deck" 
 - **Accessible**: WCAG 2.2 compliant with keyboard navigation
 - **Custom PDS Support**: Connect to any AT Protocol PDS, not just bsky.social
 - **Two-Factor Authentication**: Full 2FA support for login
+- **Feed Deduplication**: Smart deduplication prevents duplicate posts when scrolling or refreshing feeds
 
 ### Post Composer
 - **Slide-Out Composer**: Full-featured post composer that slides out from the left sidebar
@@ -67,6 +68,12 @@ A feature-complete Bluesky social media web frontend with a multi-column "deck" 
 - Block, mute, report, and word filtering
 - Content label controls (hide, warn, ignore)
 - Adult content toggle
+- **Thread Muting**: Mute individual threads to stop notifications without blocking users
+
+### Social Discovery
+- **Suggested Follows**: View similar accounts to follow when viewing other users' profiles
+- **Known Followers**: See mutual connections ("Followed by X, Y, and 3 others you follow") on profiles
+- **Starter Packs**: Browse and discover starter packs created by users, view member counts and join stats
 
 ## Tech Stack
 
@@ -178,6 +185,8 @@ skydeck/
 - `DELETE /api/posts/:uri` - Delete a post
 - `POST /api/posts/:uri/like` - Like a post
 - `POST /api/posts/:uri/repost` - Repost
+- `POST /api/posts/:uri/mute-thread` - Mute a thread
+- `DELETE /api/posts/:uri/mute-thread` - Unmute a thread
 
 ### Feeds
 - `GET /api/feeds/timeline` - Get home timeline
@@ -229,6 +238,22 @@ skydeck/
 - `DELETE /api/lists/:rkey` - Delete list
 - `POST /api/lists/:uri/members` - Add member to list
 - `DELETE /api/lists/:uri/members/:rkey` - Remove member from list
+
+### Users & Social
+- `GET /api/users/:actor` - Get user profile
+- `GET /api/users/:actor/followers` - Get user's followers
+- `GET /api/users/:actor/follows` - Get user's follows
+- `GET /api/users/:actor/suggested-follows` - Get suggested accounts to follow based on user
+- `GET /api/users/:actor/known-followers` - Get mutual/known followers
+- `GET /api/users/:actor/starter-packs` - Get user's starter packs
+- `POST /api/users/:did/follow` - Follow a user
+- `DELETE /api/users/:did/follow` - Unfollow a user
+
+### Search
+- `GET /api/search/posts` - Search posts
+- `GET /api/search/users` - Search users
+- `GET /api/search/starter-packs` - Search starter packs
+- `GET /api/search/starter-pack` - Get a specific starter pack by URI
 
 ## Configuration
 

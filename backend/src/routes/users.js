@@ -66,6 +66,29 @@ router.get('/:actor/follows', authenticate, asyncHandler(async (req, res) => {
   res.json(result);
 }));
 
+// Get suggested follows based on an actor
+router.get('/:actor/suggested-follows', authenticate, asyncHandler(async (req, res) => {
+  const { actor } = req.params;
+  const agent = await authService.getBlueskyAgent(req.user);
+
+  const result = await blueskyService.getSuggestedFollows(agent, actor);
+  res.json(result);
+}));
+
+// Get known/mutual followers
+router.get('/:actor/known-followers', authenticate, asyncHandler(async (req, res) => {
+  const { actor } = req.params;
+  const { limit = 50, cursor } = req.query;
+  const agent = await authService.getBlueskyAgent(req.user);
+
+  const result = await blueskyService.getKnownFollowers(agent, actor, {
+    limit: parseInt(limit, 10),
+    cursor,
+  });
+
+  res.json(result);
+}));
+
 // Follow user
 router.post('/:did/follow', authenticate, asyncHandler(async (req, res) => {
   const { did } = req.params;
@@ -130,6 +153,20 @@ router.get('/:actor/likes', authenticate, asyncHandler(async (req, res) => {
   const agent = await authService.getBlueskyAgent(req.user);
 
   const result = await blueskyService.getActorLikes(agent, actor, {
+    limit: parseInt(limit, 10),
+    cursor,
+  });
+
+  res.json(result);
+}));
+
+// Get user's starter packs
+router.get('/:actor/starter-packs', authenticate, asyncHandler(async (req, res) => {
+  const { actor } = req.params;
+  const { limit = 50, cursor } = req.query;
+  const agent = await authService.getBlueskyAgent(req.user);
+
+  const result = await blueskyService.getActorStarterPacks(agent, actor, {
     limit: parseInt(limit, 10),
     cursor,
   });

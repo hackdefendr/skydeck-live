@@ -51,6 +51,17 @@ export const postsService = {
       data: { repostUri },
     });
   },
+
+  // Mute a thread
+  async muteThread(uri) {
+    const response = await api.post(`/posts/${encodeURIComponent(uri)}/mute-thread`);
+    return response.data;
+  },
+
+  // Unmute a thread
+  async unmuteThread(uri) {
+    await api.delete(`/posts/${encodeURIComponent(uri)}/mute-thread`);
+  },
 };
 
 export default postsService;

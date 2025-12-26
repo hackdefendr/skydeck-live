@@ -116,4 +116,32 @@ router.delete('/:uri(*)/repost', authenticate, asyncHandler(async (req, res) => 
   res.json({ success: true });
 }));
 
+// Mute thread
+router.post('/:uri(*)/mute-thread', authenticate, asyncHandler(async (req, res) => {
+  const uri = req.params.uri;
+  const agent = await authService.getBlueskyAgent(req.user);
+
+  const result = await blueskyService.muteThread(agent, uri);
+
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  res.json({ success: true });
+}));
+
+// Unmute thread
+router.delete('/:uri(*)/mute-thread', authenticate, asyncHandler(async (req, res) => {
+  const uri = req.params.uri;
+  const agent = await authService.getBlueskyAgent(req.user);
+
+  const result = await blueskyService.unmuteThread(agent, uri);
+
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  res.json({ success: true });
+}));
+
 export default router;

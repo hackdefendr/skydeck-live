@@ -590,6 +590,70 @@ class BlueskyService {
     }
   }
 
+  // Get suggested follows based on an actor (with rate limiting and caching)
+  async getSuggestedFollows(agent, actor) {
+    const cacheKey = `suggested_follows_${actor}`;
+    const cached = await cache.get(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const response = await withRateLimit.read(
+        () => agent.app.bsky.graph.getSuggestedFollowsByActor({ actor })
+      );
+      const result = {
+        suggestions: response.data.suggestions,
+      };
+      await cache.set(cacheKey, result, 300); // Cache for 5 minutes
+      return result;
+    } catch (error) {
+      console.error('Get suggested follows error:', error);
+      throw error;
+    }
+  }
+
+  // Get known/mutual followers (with rate limiting)
+  async getKnownFollowers(agent, actor, { limit = 50, cursor } = {}) {
+    try {
+      const response = await withRateLimit.read(
+        () => agent.app.bsky.graph.getKnownFollowers({ actor, limit, cursor })
+      );
+      return {
+        subject: response.data.subject,
+        followers: response.data.followers,
+        cursor: response.data.cursor,
+      };
+    } catch (error) {
+      console.error('Get known followers error:', error);
+      throw error;
+    }
+  }
+
+  // Mute a thread (with rate limiting)
+  async muteThread(agent, threadRoot) {
+    try {
+      await withRateLimit.write(
+        () => agent.app.bsky.graph.muteThread({ root: threadRoot })
+      );
+      return { success: true };
+    } catch (error) {
+      console.error('Mute thread error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Unmute a thread (with rate limiting)
+  async unmuteThread(agent, threadRoot) {
+    try {
+      await withRateLimit.write(
+        () => agent.app.bsky.graph.unmuteThread({ root: threadRoot })
+      );
+      return { success: true };
+    } catch (error) {
+      console.error('Unmute thread error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
   // Get lists (with rate limiting)
   async getLists(agent, actor, { limit = 50, cursor } = {}) {
     try {
@@ -833,6 +897,74 @@ class BlueskyService {
   // Get rate limit status for monitoring
   getRateLimitStatus() {
     return rateLimiter.getAllStatus();
+  }
+
+  // Get a starter pack by URI (with rate limiting and caching)
+  async getStarterPack(agent, uri) {
+    const cacheKey = `starter_pack_${uri}`;
+    const cached = await cache.get(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const response = await withRateLimit.read(
+        () => agent.app.bsky.graph.getStarterPack({ starterPack: uri })
+      );
+      const result = response.data.starterPack;
+      await cache.set(cacheKey, result, 300); // Cache for 5 minutes
+      return result;
+    } catch (error) {
+      console.error('Get starter pack error:', error);
+      throw error;
+    }
+  }
+
+  // Get starter packs by URIs (with rate limiting)
+  async getStarterPacks(agent, uris) {
+    if (!uris || uris.length === 0) return { starterPacks: [] };
+
+    try {
+      const response = await withRateLimit.read(
+        () => agent.app.bsky.graph.getStarterPacks({ uris })
+      );
+      return {
+        starterPacks: response.data.starterPacks,
+      };
+    } catch (error) {
+      console.error('Get starter packs error:', error);
+      throw error;
+    }
+  }
+
+  // Get starter packs created by an actor (with rate limiting)
+  async getActorStarterPacks(agent, actor, { limit = 50, cursor } = {}) {
+    try {
+      const response = await withRateLimit.read(
+        () => agent.app.bsky.graph.getActorStarterPacks({ actor, limit, cursor })
+      );
+      return {
+        starterPacks: response.data.starterPacks,
+        cursor: response.data.cursor,
+      };
+    } catch (error) {
+      console.error('Get actor starter packs error:', error);
+      throw error;
+    }
+  }
+
+  // Search starter packs (with rate limiting)
+  async searchStarterPacks(agent, query, { limit = 25, cursor } = {}) {
+    try {
+      const response = await withRateLimit.read(
+        () => agent.app.bsky.graph.searchStarterPacks({ q: query, limit, cursor })
+      );
+      return {
+        starterPacks: response.data.starterPacks,
+        cursor: response.data.cursor,
+      };
+    } catch (error) {
+      console.error('Search starter packs error:', error);
+      throw error;
+    }
   }
 
   // Parse AT URI helper

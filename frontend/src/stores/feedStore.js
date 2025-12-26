@@ -1,6 +1,33 @@
 import { create } from 'zustand';
 import api from '../services/api';
 
+// Helper to get unique identifier from a feed item
+const getItemUri = (item) => item.post?.uri || item.uri;
+
+// Helper to deduplicate feed items by URI
+const deduplicateFeed = (items) => {
+  const seen = new Set();
+  return items.filter((item) => {
+    const uri = getItemUri(item);
+    if (!uri || seen.has(uri)) return false;
+    seen.add(uri);
+    return true;
+  });
+};
+
+// Helper to merge new items with existing feed, preserving order and removing duplicates
+const mergeFeed = (existingFeed, newFeed, prepend = false) => {
+  const existingUris = new Set(existingFeed.map(getItemUri).filter(Boolean));
+  const uniqueNewItems = newFeed.filter((item) => {
+    const uri = getItemUri(item);
+    return uri && !existingUris.has(uri);
+  });
+
+  return prepend
+    ? [...uniqueNewItems, ...existingFeed]
+    : [...existingFeed, ...uniqueNewItems];
+};
+
 export const useFeedStore = create((set, get) => ({
   feeds: {}, // Keyed by column ID
   cursors: {}, // Pagination cursors
@@ -24,14 +51,22 @@ export const useFeedStore = create((set, get) => ({
       const newFeed = response.data.feed || response.data.notifications || response.data.posts || [];
       const newCursor = response.data.cursor;
 
-      set((state) => ({
-        feeds: {
-          ...state.feeds,
-          [columnId]: append ? [...(feeds[columnId] || []), ...newFeed] : newFeed,
-        },
-        cursors: { ...state.cursors, [columnId]: newCursor },
-        loading: { ...state.loading, [columnId]: false },
-      }));
+      set((state) => {
+        const existingFeed = state.feeds[columnId] || [];
+        // Deduplicate: when appending, merge with existing; when replacing, deduplicate new feed
+        const updatedFeed = append
+          ? mergeFeed(existingFeed, newFeed, false)
+          : deduplicateFeed(newFeed);
+
+        return {
+          feeds: {
+            ...state.feeds,
+            [columnId]: updatedFeed,
+          },
+          cursors: { ...state.cursors, [columnId]: newCursor },
+          loading: { ...state.loading, [columnId]: false },
+        };
+      });
 
       return { success: true };
     } catch (error) {
@@ -52,14 +87,16 @@ export const useFeedStore = create((set, get) => ({
   },
 
   addToFeed: (columnId, items, prepend = true) => {
-    set((state) => ({
-      feeds: {
-        ...state.feeds,
-        [columnId]: prepend
-          ? [...items, ...(state.feeds[columnId] || [])]
-          : [...(state.feeds[columnId] || []), ...items],
-      },
-    }));
+    set((state) => {
+      const existingFeed = state.feeds[columnId] || [];
+      const updatedFeed = mergeFeed(existingFeed, items, prepend);
+      return {
+        feeds: {
+          ...state.feeds,
+          [columnId]: updatedFeed,
+        },
+      };
+    });
   },
 
   removeFromFeed: (columnId, itemUri) => {

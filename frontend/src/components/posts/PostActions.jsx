@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MessageCircle, Repeat2, Heart, Share, Quote, Bookmark } from 'lucide-react';
+import { MessageCircle, Repeat2, Heart, Share, Quote, Bookmark, MoreHorizontal, BellOff, Bell } from 'lucide-react';
 import { formatNumber, cn } from '../../utils/helpers';
 import postsService from '../../services/posts';
 import { useBookmarkStore } from '../../stores/bookmarkStore';
@@ -18,6 +18,7 @@ function PostActions({ post, className, onReply, onQuote }) {
   // Bookmark state
   const { isBookmarked, toggleBookmark } = useBookmarkStore();
   const [bookmarked, setBookmarked] = useState(false);
+  const [isThreadMuted, setIsThreadMuted] = useState(!!post.viewer?.threadMuted);
 
   // Check if post is bookmarked
   useEffect(() => {
@@ -93,6 +94,25 @@ function PostActions({ post, className, onReply, onQuote }) {
       showErrorToast(wasBookmarked ? 'Failed to remove bookmark' : 'Failed to add bookmark');
     } else {
       showSuccessToast(wasBookmarked ? 'Bookmark removed' : 'Post bookmarked');
+    }
+  };
+
+  const handleMuteThread = async () => {
+    // Get the thread root URI - use the reply root if this is a reply, otherwise use the post URI
+    const threadRoot = post.record?.reply?.root?.uri || post.uri;
+
+    try {
+      if (isThreadMuted) {
+        await postsService.unmuteThread(threadRoot);
+        setIsThreadMuted(false);
+        showSuccessToast('Thread unmuted');
+      } else {
+        await postsService.muteThread(threadRoot);
+        setIsThreadMuted(true);
+        showSuccessToast('Thread muted');
+      }
+    } catch (error) {
+      showErrorToast(isThreadMuted ? 'Failed to unmute thread' : 'Failed to mute thread');
     }
   };
 
@@ -193,16 +213,27 @@ function PostActions({ post, className, onReply, onQuote }) {
         />
       </Button>
 
-      {/* Share */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="group w-9 h-9"
-        onClick={handleShare}
-        aria-label="Share"
+      {/* More menu (Share, Mute Thread) */}
+      <Dropdown
+        align="right"
+        trigger={
+          <Button
+            variant="ghost"
+            size="icon"
+            className="group w-9 h-9"
+            aria-label="More options"
+          >
+            <MoreHorizontal className="w-4 h-4 text-text-muted group-hover:text-primary" />
+          </Button>
+        }
       >
-        <Share className="w-4 h-4 text-text-muted group-hover:text-primary" />
-      </Button>
+        <Dropdown.Item onClick={handleShare} icon={Share}>
+          Share
+        </Dropdown.Item>
+        <Dropdown.Item onClick={handleMuteThread} icon={isThreadMuted ? Bell : BellOff}>
+          {isThreadMuted ? 'Unmute thread' : 'Mute thread'}
+        </Dropdown.Item>
+      </Dropdown>
     </div>
   );
 }
