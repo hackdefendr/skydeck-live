@@ -15,6 +15,7 @@ import giphyRoutes from './giphy.js';
 import bookmarksRoutes from './bookmarks.js';
 import draftsRoutes from './drafts.js';
 import listsRoutes from './lists.js';
+import translateRoutes from './translate.js';
 
 const router = Router();
 
@@ -35,6 +36,7 @@ router.use('/giphy', giphyRoutes);
 router.use('/bookmarks', bookmarksRoutes);
 router.use('/drafts', draftsRoutes);
 router.use('/lists', listsRoutes);
+router.use('/translate', translateRoutes);
 
 // API info
 router.get('/', (req, res) => {
@@ -58,6 +60,7 @@ router.get('/', (req, res) => {
       '/api/bookmarks',
       '/api/drafts',
       '/api/lists',
+      '/api/translate',
     ],
   });
 });

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Repeat2, MessageCircle, Heart, Share, MoreHorizontal } from 'lucide-react';
+import { Repeat2, MessageCircle, Heart, Share, MoreHorizontal, Languages, X } from 'lucide-react';
 import { shortTimeAgo } from '../../utils/helpers';
 import Avatar from '../common/Avatar';
 import Button from '../common/Button';
@@ -11,6 +11,18 @@ import PostActions from './PostActions';
 function PostCard({ post, showReply = true, compact = false, onClick, onReply, onQuote }) {
   const { author, record, embed, replyCount, repostCount, likeCount, viewer, indexedAt } = post;
   const [showProfilePopup, setShowProfilePopup] = useState(false);
+  const [translatedText, setTranslatedText] = useState(null);
+  const [detectedLanguage, setDetectedLanguage] = useState(null);
+
+  const handleTranslate = (text, sourceLang) => {
+    setTranslatedText(text);
+    setDetectedLanguage(sourceLang);
+  };
+
+  const clearTranslation = () => {
+    setTranslatedText(null);
+    setDetectedLanguage(null);
+  };
 
   if (!author || !record) return null;
 
@@ -86,8 +98,31 @@ function PostCard({ post, showReply = true, compact = false, onClick, onReply, o
 
           {/* Text content */}
           {record.text && (
-            <div className="text-text-primary whitespace-pre-wrap break-words mt-1 post-content">
-              {record.text}
+            <div className="mt-1">
+              {translatedText ? (
+                <div>
+                  <div className="text-text-primary whitespace-pre-wrap break-words post-content">
+                    {translatedText}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-text-muted flex items-center gap-1">
+                      <Languages className="w-3 h-3" />
+                      Translated from {detectedLanguage || 'unknown'}
+                    </span>
+                    <button
+                      onClick={clearTranslation}
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                    >
+                      <X className="w-3 h-3" />
+                      Show original
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-text-primary whitespace-pre-wrap break-words post-content">
+                  {record.text}
+                </div>
+              )}
             </div>
           )}
 
@@ -103,6 +138,7 @@ function PostCard({ post, showReply = true, compact = false, onClick, onReply, o
             post={post}
             onReply={onReply}
             onQuote={onQuote}
+            onTranslate={handleTranslate}
             className="mt-2 -ml-2"
           />
         </div>

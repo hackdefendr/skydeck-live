@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Palette, Layout, Bell, Shield, User, LogOut, List } from 'lucide-react';
+import { ArrowLeft, Palette, Layout, Bell, Shield, User, LogOut, List, Languages } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import ThemeCustomizer from '../components/theme/ThemeCustomizer';
 import LayoutSettings from '../components/settings/LayoutSettings';
 import NotificationSettings from '../components/settings/NotificationSettings';
 import ModerationSettings from '../components/settings/ModerationSettings';
 import ListsSettings from '../components/settings/ListsSettings';
+import TranslationSettings from '../components/settings/TranslationSettings';
 import Button from '../components/common/Button';
 
 function Settings() {
@@ -17,6 +18,7 @@ function Settings() {
     { id: 'theme', label: 'Appearance', icon: Palette },
     { id: 'layout', label: 'Layout', icon: Layout },
     { id: 'lists', label: 'Lists', icon: List },
+    { id: 'translation', label: 'Translation', icon: Languages },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'moderation', label: 'Moderation', icon: Shield },
     { id: 'account', label: 'Account', icon: User },
@@ -79,6 +81,8 @@ function Settings() {
             {activeTab === 'layout' && <LayoutSettings />}
 
             {activeTab === 'lists' && <ListsSettings />}
+
+            {activeTab === 'translation' && <TranslationSettings />}
 
             {activeTab === 'notifications' && <NotificationSettings />}
 

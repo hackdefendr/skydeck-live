@@ -1,24 +1,29 @@
 import { useState, useEffect } from 'react';
-import { MessageCircle, Repeat2, Heart, Share, Quote, Bookmark, MoreHorizontal, BellOff, Bell } from 'lucide-react';
+import { MessageCircle, Repeat2, Heart, Share, Quote, Bookmark, MoreHorizontal, BellOff, Bell, Languages } from 'lucide-react';
 import { formatNumber, cn } from '../../utils/helpers';
 import postsService from '../../services/posts';
 import { useBookmarkStore } from '../../stores/bookmarkStore';
+import { useTranslationStore } from '../../stores/translationStore';
 import Button from '../common/Button';
 import Dropdown from '../common/Dropdown';
 import { showSuccessToast, showErrorToast } from '../common/Toast';
 
-function PostActions({ post, className, onReply, onQuote }) {
+function PostActions({ post, className, onReply, onQuote, onTranslate }) {
   const [isLiked, setIsLiked] = useState(!!post.viewer?.like);
   const [isReposted, setIsReposted] = useState(!!post.viewer?.repost);
   const [likeUri, setLikeUri] = useState(post.viewer?.like);
   const [repostUri, setRepostUri] = useState(post.viewer?.repost);
   const [likeCount, setLikeCount] = useState(post.likeCount || 0);
   const [repostCount, setRepostCount] = useState(post.repostCount || 0);
+  const [isTranslating, setIsTranslating] = useState(false);
 
   // Bookmark state
   const { isBookmarked, toggleBookmark } = useBookmarkStore();
   const [bookmarked, setBookmarked] = useState(false);
   const [isThreadMuted, setIsThreadMuted] = useState(!!post.viewer?.threadMuted);
+
+  // Translation
+  const { translatePost, preferredLanguage } = useTranslationStore();
 
   // Check if post is bookmarked
   useEffect(() => {
@@ -114,6 +119,30 @@ function PostActions({ post, className, onReply, onQuote }) {
     } catch (error) {
       showErrorToast(isThreadMuted ? 'Failed to unmute thread' : 'Failed to mute thread');
     }
+  };
+
+  const handleTranslate = async () => {
+    const text = post.record?.text;
+    if (!text) {
+      showErrorToast('No text to translate');
+      return;
+    }
+
+    setIsTranslating(true);
+    try {
+      const result = await translatePost(post.uri, text);
+      if (result.success) {
+        if (onTranslate) {
+          onTranslate(result.text, result.detectedLanguage);
+        }
+        showSuccessToast(`Translated from ${result.detectedLanguage || 'unknown'}`);
+      } else {
+        showErrorToast(result.error || 'Translation failed');
+      }
+    } catch (error) {
+      showErrorToast('Translation failed');
+    }
+    setIsTranslating(false);
   };
 
   return (
@@ -229,6 +258,13 @@ function PostActions({ post, className, onReply, onQuote }) {
       >
         <Dropdown.Item onClick={handleShare} icon={Share}>
           Share
+        </Dropdown.Item>
+        <Dropdown.Item
+          onClick={handleTranslate}
+          icon={Languages}
+          disabled={isTranslating || !post.record?.text}
+        >
+          {isTranslating ? 'Translating...' : 'Translate'}
         </Dropdown.Item>
         <Dropdown.Item onClick={handleMuteThread} icon={isThreadMuted ? Bell : BellOff}>
           {isThreadMuted ? 'Unmute thread' : 'Mute thread'}

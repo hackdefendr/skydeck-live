@@ -83,6 +83,14 @@ A feature-complete Bluesky social media web frontend with a multi-column "deck" 
 - **Known Followers**: See mutual connections ("Followed by X, Y, and 3 others you follow") on profiles
 - **Starter Packs**: Browse and discover starter packs created by users, view member counts and join stats
 
+### Post Translation
+- **Translate Posts**: Translate any post to your preferred language with a single click
+- **30+ Languages**: Support for English, Spanish, French, German, Japanese, Chinese, Arabic, and many more
+- **Language Detection**: Automatically detects the source language of posts
+- **Translation Caching**: Translations are cached to improve performance and reduce API calls
+- **Settings**: Configure your preferred translation language in Settings > Translation
+- **Powered by LibreTranslate**: Uses free, open-source machine translation
+
 ## Tech Stack
 
 ### Backend
@@ -263,6 +271,11 @@ skydeck/
 - `GET /api/search/starter-packs` - Search starter packs
 - `GET /api/search/starter-pack` - Get a specific starter pack by URI
 
+### Translation
+- `POST /api/translate` - Translate text to target language
+- `POST /api/translate/detect` - Detect language of text
+- `GET /api/translate/languages` - Get list of supported languages
+
 ## Configuration
 
 ### Environment Variables
@@ -277,6 +290,8 @@ skydeck/
 | `BLUESKY_SERVICE` | Bluesky API service URL | https://bsky.social |
 | `BLUESKY_CHAT_SERVICE` | Bluesky Chat API URL | https://api.bsky.chat |
 | `FRONTEND_URL` | Frontend URL for CORS | http://localhost:5173 |
+| `LIBRETRANSLATE_URL` | LibreTranslate API URL | https://libretranslate.com |
+| `LIBRETRANSLATE_API_KEY` | LibreTranslate API key (get one at https://portal.libretranslate.com) | - |
 
 ## Contributing
 
