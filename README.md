@@ -2,6 +2,8 @@
 
 A feature-complete Bluesky social media web frontend with a multi-column "deck" interface, inspired by [deck.blue](https://deck.blue).
 
+![SkyDeck Screenshot](screenshot.png)
+
 ## Features
 
 ### Core Features

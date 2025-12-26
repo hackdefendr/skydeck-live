@@ -1,4 +1,4 @@
-import { Repeat2 } from 'lucide-react';
+import { Repeat2, MessageCircle } from 'lucide-react';
 import PostCard from './PostCard';
 
 function Post({ item, compact, onClick, onReply, onQuote }) {
@@ -16,16 +16,12 @@ function Post({ item, compact, onClick, onReply, onQuote }) {
           </div>
         )}
 
-        {/* Reply context */}
+        {/* Reply indicator - just show who they're replying to, not the full post */}
         {reply?.parent && (
-          <PostCard
-            post={reply.parent}
-            showReply={false}
-            compact={true}
-            onClick={onClick}
-            onReply={onReply}
-            onQuote={onQuote}
-          />
+          <div className="px-4 pt-2 flex items-center gap-2 text-sm text-text-muted">
+            <MessageCircle className="w-4 h-4" />
+            <span>Replying to @{reply.parent.author?.handle}</span>
+          </div>
         )}
 
         {/* Main post */}

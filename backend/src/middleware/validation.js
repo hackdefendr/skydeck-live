@@ -40,7 +40,10 @@ export const schemas = {
   createPost: z.object({
     body: z.object({
       text: z.string().min(1).max(300, 'Post must be 300 characters or less'),
-      replyTo: z.string().nullish(), // Allow null, undefined, or string
+      replyTo: z.object({
+        root: z.object({ uri: z.string(), cid: z.string() }).passthrough(),
+        parent: z.object({ uri: z.string(), cid: z.string() }).passthrough(),
+      }).passthrough().nullish(), // Reply context with root and parent refs
       quoteUri: z.string().nullish(),
       mediaIds: z.array(z.string()).nullish(),
       langs: z.array(z.string()).nullish(),

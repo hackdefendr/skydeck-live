@@ -8,8 +8,46 @@ class NotificationService {
     const agent = await authService.getBlueskyAgent(user);
     const result = await blueskyService.getNotifications(agent, { limit, cursor });
 
+    // Fetch subject posts for likes and reposts
+    const subjectUris = result.notifications
+      .filter(n => (n.reason === 'like' || n.reason === 'repost') && n.reasonSubject)
+      .map(n => n.reasonSubject);
+
+    let subjectPosts = {};
+    if (subjectUris.length > 0) {
+      try {
+        // Fetch posts in batches of 25 (API limit)
+        const uniqueUris = [...new Set(subjectUris)];
+        const batches = [];
+        for (let i = 0; i < uniqueUris.length; i += 25) {
+          batches.push(uniqueUris.slice(i, i + 25));
+        }
+
+        const batchResults = await Promise.all(
+          batches.map(batch => blueskyService.getPosts(agent, batch).catch(() => []))
+        );
+
+        for (const posts of batchResults) {
+          for (const post of posts) {
+            subjectPosts[post.uri] = {
+              uri: post.uri,
+              cid: post.cid,
+              text: post.record?.text || '',
+              author: post.author ? {
+                did: post.author.did,
+                handle: post.author.handle,
+                displayName: post.author.displayName,
+              } : null,
+            };
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch subject posts:', error);
+      }
+    }
+
     return {
-      notifications: this.transformNotifications(result.notifications),
+      notifications: this.transformNotifications(result.notifications, subjectPosts),
       cursor: result.cursor,
       seenAt: result.seenAt,
     };
@@ -37,7 +75,7 @@ class NotificationService {
   }
 
   // Transform notifications for frontend
-  transformNotifications(notifications) {
+  transformNotifications(notifications, subjectPosts = {}) {
     return notifications.map((notification) => ({
       uri: notification.uri,
       cid: notification.cid,
@@ -53,6 +91,8 @@ class NotificationService {
       } : null,
       record: notification.record,
       labels: notification.labels || [],
+      // Include subject post data for likes/reposts
+      subjectPost: notification.reasonSubject ? subjectPosts[notification.reasonSubject] : null,
     }));
   }
 

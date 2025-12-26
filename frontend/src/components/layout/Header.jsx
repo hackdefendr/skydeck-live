@@ -12,13 +12,13 @@ function Header() {
   const { unreadCount } = useNotificationStore();
 
   return (
-    <header className="h-14 bg-bg-secondary border-b border-border flex items-center px-4 gap-4">
+    <header className="h-20 bg-bg-secondary border-b border-border flex items-center px-4 gap-4">
       {/* Logo */}
-      <Link to="/" className="flex items-center gap-2">
-        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-          <Logo size={24} className="text-primary" />
+      <Link to="/" className="flex items-center gap-3">
+        <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
+          <Logo size={48} className="text-primary" />
         </div>
-        <span className="font-bold text-lg hidden sm:block">SkyDeck</span>
+        <span className="font-bold hidden sm:block" style={{ fontSize: '32px', lineHeight: 1 }}>SkyDeck Live</span><sup>BETA</sup>
       </Link>
 
       {/* Spacer */}

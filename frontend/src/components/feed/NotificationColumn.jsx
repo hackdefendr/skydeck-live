@@ -141,8 +141,15 @@ function NotificationColumn({ column }) {
                 {label}
               </p>
 
-              {/* Show post preview for likes, reposts, quotes */}
-              {notification.record?.text && (
+              {/* Show subject post preview for likes and reposts */}
+              {(notification.reason === 'like' || notification.reason === 'repost') && notification.subjectPost?.text && (
+                <p className="text-text-muted text-sm mt-2 line-clamp-2 border-l-2 border-border pl-2">
+                  {notification.subjectPost.text}
+                </p>
+              )}
+
+              {/* Show reply/quote/mention text */}
+              {(notification.reason === 'reply' || notification.reason === 'quote' || notification.reason === 'mention') && notification.record?.text && (
                 <p className="text-text-muted text-sm mt-2 line-clamp-2">
                   {notification.record.text}
                 </p>
