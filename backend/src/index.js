@@ -50,8 +50,8 @@ app.use(express.static(path.join('public'), {
 	}
     }
 }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 
 // Static files for uploads

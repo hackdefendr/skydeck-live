@@ -688,17 +688,168 @@ class BlueskyService {
 
   // Upload blob (for images/media) - with rate limiting
   async uploadBlob(agent, data, mimeType) {
+    const dataSize = data.length || data.byteLength || 0;
+    console.log(`[UploadBlob] Starting upload: ${mimeType}, size: ${dataSize} bytes (${(dataSize / 1024 / 1024).toFixed(2)} MB)`);
+
+    // Bluesky has a 1MB limit for blobs
+    if (dataSize > 1000000) {
+      console.error(`[UploadBlob] ERROR: Data size ${dataSize} bytes exceeds Bluesky's 1MB limit!`);
+      return { success: false, error: `File too large for Bluesky (${(dataSize / 1024 / 1024).toFixed(2)} MB). Maximum is 1MB.` };
+    }
+
     try {
       const response = await withRateLimit.write(
         () => agent.uploadBlob(data, { encoding: mimeType }),
         { maxRetries: 2, baseDelay: 2000 }
       );
+      console.log(`[UploadBlob] Success! Blob ref: ${response.data.blob?.ref?.$link || 'unknown'}`);
       return {
         success: true,
         blob: response.data.blob,
       };
     } catch (error) {
-      console.error('Upload blob error:', error);
+      console.error('[UploadBlob] Error:', error.message);
+      console.error('[UploadBlob] Error details:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Upload video to Bluesky (uses separate video service at video.bsky.app)
+  async uploadVideo(agent, data, mimeType, did) {
+    const dataSize = data.length || data.byteLength || 0;
+    console.log(`[UploadVideo] Starting upload: ${mimeType}, size: ${dataSize} bytes (${(dataSize / 1024 / 1024).toFixed(2)} MB), did: ${did}`);
+
+    const VIDEO_SERVICE = 'https://video.bsky.app';
+
+    try {
+      // Get the PDS host from the agent's service URL
+      const pdsHost = agent.service?.host || new URL(agent.serviceUrl || 'https://bsky.social').host;
+      const pdsDid = `did:web:${pdsHost}`;
+      console.log(`[UploadVideo] Using PDS DID: ${pdsDid}`);
+
+      // Step 1: Get service auth token for video upload
+      // The audience must be the user's PDS DID, lexicon must be com.atproto.repo.uploadBlob
+      console.log('[UploadVideo] Getting service auth token...');
+      const serviceAuthResponse = await agent.com.atproto.server.getServiceAuth({
+        aud: pdsDid,
+        lxm: 'com.atproto.repo.uploadBlob',
+        exp: Math.floor(Date.now() / 1000) + 60 * 30, // 30 minutes
+      });
+      const serviceToken = serviceAuthResponse.data.token;
+      console.log('[UploadVideo] Got service auth token');
+
+      // Step 2: Upload video to video service
+      console.log('[UploadVideo] Uploading to video service...');
+      const uploadUrl = `${VIDEO_SERVICE}/xrpc/app.bsky.video.uploadVideo?did=${encodeURIComponent(did)}&name=${encodeURIComponent('video.' + (mimeType === 'video/mp4' ? 'mp4' : mimeType === 'video/webm' ? 'webm' : 'mov'))}`;
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${serviceToken}`,
+          'Content-Type': mimeType,
+          'Content-Length': dataSize.toString(),
+        },
+        body: data,
+      });
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error('[UploadVideo] Upload failed:', uploadResponse.status, errorText);
+        return { success: false, error: `Video upload failed: ${uploadResponse.status} ${errorText}` };
+      }
+
+      const uploadResult = await uploadResponse.json();
+      console.log('[UploadVideo] Upload response:', JSON.stringify(uploadResult));
+
+      // Step 3: Wait for video processing
+      // Response format: { did, jobId, state } - state is at root level, not nested
+      if (uploadResult.jobId) {
+        let jobId = uploadResult.jobId;
+        let state = uploadResult.state;
+        let blob = uploadResult.blob;
+        let attempts = 0;
+        let lastStatusResult = null; // Keep track of last status for error reporting
+        const maxAttempts = 120; // Wait up to 2 minutes for processing
+
+        // Continue while job is in any processing state (not completed or failed)
+        while (!state.includes('COMPLETED') && !state.includes('FAILED')) {
+          if (attempts >= maxAttempts) {
+            console.error('[UploadVideo] Timeout waiting for video processing');
+            return { success: false, error: 'Video processing timeout. Please try a smaller video.' };
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          attempts++;
+
+          // Check job status - must call video service directly, not through agent's PDS
+          console.log(`[UploadVideo] Checking job status (attempt ${attempts})...`);
+          const statusUrl = `${VIDEO_SERVICE}/xrpc/app.bsky.video.getJobStatus?jobId=${encodeURIComponent(jobId)}`;
+          const statusResponse = await fetch(statusUrl, {
+            headers: {
+              'Authorization': `Bearer ${serviceToken}`,
+            },
+          });
+
+          if (!statusResponse.ok) {
+            console.error('[UploadVideo] Failed to get job status:', statusResponse.status);
+            continue;
+          }
+
+          lastStatusResult = await statusResponse.json();
+          const jobStatus = lastStatusResult.jobStatus || lastStatusResult;
+          state = jobStatus.state;
+          blob = jobStatus.blob;
+          console.log(`[UploadVideo] Job state: ${state}`);
+
+          if (jobStatus.progress !== undefined) {
+            console.log(`[UploadVideo] Progress: ${jobStatus.progress}%`);
+          }
+
+          if (jobStatus.error) {
+            console.error(`[UploadVideo] Job error: ${jobStatus.error}`);
+          }
+          if (jobStatus.message) {
+            console.log(`[UploadVideo] Job message: ${jobStatus.message}`);
+          }
+        }
+
+        if (state === 'JOB_STATE_COMPLETED' && blob) {
+          console.log('[UploadVideo] Video processing completed successfully');
+          return {
+            success: true,
+            blob: blob,
+          };
+        } else if (state === 'JOB_STATE_FAILED') {
+          // Log full job status for debugging
+          console.error('[UploadVideo] Video processing failed. Full status:', JSON.stringify(lastStatusResult, null, 2));
+          const jobStatus = lastStatusResult?.jobStatus || lastStatusResult;
+          const errorMsg = jobStatus?.error || jobStatus?.message || 'Video processing failed';
+          return { success: false, error: errorMsg };
+        }
+      }
+
+      // If we got a direct blob response
+      if (uploadResult.blob) {
+        console.log('[UploadVideo] Got direct blob response');
+        return {
+          success: true,
+          blob: uploadResult.blob,
+        };
+      }
+
+      console.error('[UploadVideo] Unexpected response:', uploadResult);
+      return { success: false, error: 'Unexpected video upload response' };
+    } catch (error) {
+      console.error('[UploadVideo] Error:', error.message);
+      console.error('[UploadVideo] Error stack:', error.stack);
+
+      if (error.message?.includes('PayloadTooLarge') || error.status === 413) {
+        return {
+          success: false,
+          error: `Video too large for Bluesky. Maximum is around 50MB. Try a shorter or lower resolution video.`
+        };
+      }
+
       return { success: false, error: error.message };
     }
   }

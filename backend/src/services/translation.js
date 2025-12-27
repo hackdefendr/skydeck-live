@@ -4,7 +4,8 @@ import NodeCache from 'node-cache';
 const translationCache = new NodeCache({ stdTTL: 86400, checkperiod: 3600 });
 
 // LibreTranslate configuration from environment
-const LIBRETRANSLATE_URL = process.env.LIBRETRANSLATE_URL || 'https://libretranslate.com';
+// Remove trailing slash if present to avoid double slashes in URL
+const LIBRETRANSLATE_URL = (process.env.LIBRETRANSLATE_URL || 'https://libretranslate.com').replace(/\/+$/, '');
 const LIBRETRANSLATE_API_KEY = process.env.LIBRETRANSLATE_API_KEY || '';
 
 // Fallback instances (only used if no API key is configured)
@@ -122,6 +123,9 @@ class TranslationService {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
+    // Normalize instance URL (remove trailing slashes)
+    const baseUrl = instance.replace(/\/+$/, '');
+
     try {
       const requestBody = {
         q: text,
@@ -135,7 +139,7 @@ class TranslationService {
         requestBody.api_key = LIBRETRANSLATE_API_KEY;
       }
 
-      const response = await fetch(`${instance}/translate`, {
+      const response = await fetch(`${baseUrl}/translate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -184,6 +188,9 @@ class TranslationService {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000);
 
+        // Normalize instance URL (remove trailing slashes)
+        const baseUrl = instance.replace(/\/+$/, '');
+
         const requestBody = { q: text };
 
         // Include API key if configured
@@ -191,7 +198,7 @@ class TranslationService {
           requestBody.api_key = LIBRETRANSLATE_API_KEY;
         }
 
-        const response = await fetch(`${instance}/detect`, {
+        const response = await fetch(`${baseUrl}/detect`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

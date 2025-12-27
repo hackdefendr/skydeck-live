@@ -123,9 +123,9 @@ function SlideOutComposer({ isOpen, onClose, replyTo = null, quotePost = null })
           return;
         }
 
-        // Validate image size (1MB max)
-        if (file.size > 1024 * 1024) {
-          showErrorToast('Image too large. Maximum size is 1MB.');
+        // Validate image size (10MB max - will be compressed before upload)
+        if (file.size > 10 * 1024 * 1024) {
+          showErrorToast('Image too large. Maximum size is 10MB.');
           return;
         }
 
@@ -169,11 +169,34 @@ function SlideOutComposer({ isOpen, onClose, replyTo = null, quotePost = null })
           return;
         }
 
-        setVideo({
-          file,
-          preview: URL.createObjectURL(file),
-          alt: '',
-        });
+        // Validate video duration (3 minutes max for Bluesky)
+        const videoUrl = URL.createObjectURL(file);
+        const videoEl = document.createElement('video');
+        videoEl.preload = 'metadata';
+
+        videoEl.onloadedmetadata = () => {
+          const duration = videoEl.duration;
+          console.log(`Pasted video duration: ${duration} seconds`);
+
+          if (duration > 180) { // 3 minutes = 180 seconds
+            URL.revokeObjectURL(videoUrl);
+            showErrorToast(`Video too long (${Math.round(duration)}s). Maximum is 3 minutes.`);
+            return;
+          }
+
+          setVideo({
+            file,
+            preview: videoUrl,
+            alt: '',
+          });
+        };
+
+        videoEl.onerror = () => {
+          URL.revokeObjectURL(videoUrl);
+          showErrorToast('Could not read video metadata');
+        };
+
+        videoEl.src = videoUrl;
         return;
       }
     }
@@ -331,6 +354,33 @@ function SlideOutComposer({ isOpen, onClose, replyTo = null, quotePost = null })
       return;
     }
 
+    // Validate video duration (3 minutes max for Bluesky)
+    const videoUrl = URL.createObjectURL(file);
+    const videoEl = document.createElement('video');
+    videoEl.preload = 'metadata';
+
+    try {
+      await new Promise((resolve, reject) => {
+        videoEl.onloadedmetadata = () => {
+          const duration = videoEl.duration;
+          console.log(`Video duration: ${duration} seconds`);
+
+          if (duration > 180) { // 3 minutes = 180 seconds
+            reject(new Error(`Video too long (${Math.round(duration)}s). Maximum is 3 minutes.`));
+          } else {
+            resolve();
+          }
+        };
+        videoEl.onerror = () => reject(new Error('Could not read video metadata'));
+        videoEl.src = videoUrl;
+      });
+    } catch (error) {
+      URL.revokeObjectURL(videoUrl);
+      showErrorToast(error.message);
+      e.target.value = '';
+      return;
+    }
+
     // Clear images and GIF if adding video
     if (images.length > 0) {
       images.forEach((img) => URL.revokeObjectURL(img.preview));
@@ -340,7 +390,7 @@ function SlideOutComposer({ isOpen, onClose, replyTo = null, quotePost = null })
 
     setVideo({
       file,
-      preview: URL.createObjectURL(file),
+      preview: videoUrl,
       alt: '',
     });
     e.target.value = '';
